@@ -61,6 +61,6 @@ cd site && npx vercel deploy --prod
 
 Code: [MIT](LICENSE) © 2026 FD. Studio.
 
-The FD. Studio name and logo are not covered by the MIT License. If you fork the project, replace them with your own branding.
+The FD. Studio name and logo are not covered by the MIT License; see [TRADEMARKS.md](TRADEMARKS.md). If you fork the project, replace them with your own branding.
 
 Third-party libraries loaded from CDNs keep their own licenses: three.js (MIT), qrcode-generator (MIT), jsQR (Apache-2.0). Fonts are from Google Fonts under the SIL Open Font License.

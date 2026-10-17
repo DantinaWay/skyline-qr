@@ -19,10 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-The FD. Studio name and logo (assets/fd-logo.png, assets/favicon-32.png,
-assets/apple-touch-icon.png and their copies in site/) are trademarks of
-FD. Studio and are not licensed under the MIT License above. If you fork this
-project, replace them with your own branding.
