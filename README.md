@@ -27,7 +27,6 @@ Each city has three colour sets and a day/night mode.
 - Every dark module becomes a building; neighbouring dark modules are merged into larger blocks. Light modules are streets, and the required four-module quiet zone is kept clear around the code.
 - The three corner finder patterns always become landmark buildings.
 - Buildings can be any height: from directly above, with an orthographic camera and flat lighting, only the roof colours show. Roofs are always dark and streets always light, so the code keeps its contrast.
-- After every change the page renders the top view off-screen and decodes it with [jsQR](https://github.com/cozmo/jsQR). The badge in the corner shows whether it scans.
 - Rendering uses [three.js](https://threejs.org) (r128). All geometry is generated in code and batched into a few meshes.
 
 ## Files
@@ -63,4 +62,4 @@ Code: [MIT](LICENSE) © 2026 FD. Studio.
 
 The FD. Studio name and logo are not covered by the MIT License; see [TRADEMARKS.md](TRADEMARKS.md). If you fork the project, replace them with your own branding.
 
-Third-party libraries loaded from CDNs keep their own licenses: three.js (MIT), qrcode-generator (MIT), jsQR (Apache-2.0). Fonts are from Google Fonts under the SIL Open Font License.
+Third-party libraries loaded from CDNs keep their own licenses: three.js (MIT) and qrcode-generator (MIT). Fonts are from Google Fonts under the SIL Open Font License.

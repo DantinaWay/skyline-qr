@@ -132,9 +132,6 @@
     display: inline-flex; align-items: center; gap: 8px; background: var(--panel); color: var(--ink);
     border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font-size: 13px; max-width: 100%;
   }
-  .pill .dot { width: 8px; height: 8px; border-radius: 2px; background: var(--muted); flex: none; }
-  .pill.ok .dot { background: var(--ok); }
-  .pill.bad .dot { background: var(--bad); }
   .pill span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hint { transition: opacity 0.4s; }
 
@@ -261,7 +258,6 @@
     </div>
     <div class="hud-bottom">
       <div class="pill hint" id="hint"><span>Drag to turn the city</span></div>
-      <div class="pill" id="scan" role="status" aria-live="polite"><i class="dot"></i><span>Checking the code…</span></div>
     </div>
   </div>
 
@@ -316,7 +312,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
 (function () {
   'use strict';
@@ -1113,7 +1108,7 @@
   new ResizeObserver(resize).observe(stage);
   window.addEventListener('resize', resize);
 
-  /* ---------- top-down render (scan check + PNG) ---------- */
+  /* ---------- top-down render (PNG) ---------- */
   function renderTop(size, extra = 1.5) {
     const half = view.N / 2 + view.Q + extra;
     const cam = new THREE.OrthographicCamera(-half, half, half, -half, 0.1, 1400);
@@ -1130,21 +1125,6 @@
     for (let i = 3; i < img.data.length; i += 4) img.data[i] = 255;
     g.putImageData(img, 0, 0);
     return cv;
-  }
-  const scanEl = $('#scan');
-  function setScan(kind, text) { scanEl.className = 'pill' + (kind ? ' ' + kind : ''); scanEl.querySelector('span').textContent = text; }
-  const shortHost = (s) => { try { const u = new URL(s); return u.host + (u.pathname.length > 1 ? u.pathname : ''); } catch (e) { return s; } };
-  let scanTimer = 0;
-  function scheduleScan() {
-    clearTimeout(scanTimer);
-    setScan('', 'Checking the code…');
-    scanTimer = setTimeout(() => {
-      if (!window.jsQR) { setScan('', 'Scan check unavailable'); return; }
-      const cv = renderTop(720), img = cv.getContext('2d').getImageData(0, 0, 720, 720);
-      const res = jsQR(img.data, 720, 720, { inversionAttempts: 'dontInvert' });
-      if (res && res.data === state.enc) setScan('ok', 'Scans · opens ' + shortHost(state.enc));
-      else setScan('bad', 'Not scanning yet · try a shorter link');
-    }, 350);
   }
 
   /* ---------- UI ---------- */
@@ -1210,13 +1190,13 @@
     });
   }
   function refresh() {
-    renderCities(); renderPalettes(); applyLook(); build(); scheduleScan();
+    renderCities(); renderPalettes(); applyLook(); build();
   }
 
   let inputTimer = 0;
   urlEl.addEventListener('input', () => {
     clearTimeout(inputTimer);
-    inputTimer = setTimeout(() => { if (readUrl()) { build(); scheduleScan(); } }, 160);
+    inputTimer = setTimeout(() => { if (readUrl()) build(); }, 160);
   });
   urlEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); urlEl.blur(); } });
 
@@ -1224,7 +1204,7 @@
   function setNight(v) {
     if (state.night === v) return;
     state.night = v; dayBtn.setAttribute('aria-pressed', String(!v)); nightBtn.setAttribute('aria-pressed', String(v));
-    applyLook(); build(); scheduleScan();
+    applyLook(); build();
   }
   dayBtn.addEventListener('click', () => setNight(false));
   nightBtn.addEventListener('click', () => setNight(true));
