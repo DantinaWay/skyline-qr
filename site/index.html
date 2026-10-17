@@ -1,0 +1,1310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Type a link, pick a pixel city, and fly up: from above, the rooftops form a QR code any phone can scan.">
+<meta property="og:title" content="Skyline QR">
+<meta property="og:description" content="Turn any link into a pixel city whose rooftops form a scannable QR code.">
+<meta name="theme-color" content="#13151b">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="180x180" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+  :root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; -webkit-font-smoothing: antialiased; }
+  img { max-width: 100%; }
+</style>
+<title>Skyline QR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  /* Layout: a full-bleed 3D city stage with a floating control column on the left; on phones the column stacks under the stage */
+  :root {
+    --panel: rgba(251, 250, 246, 0.92);
+    --panel-solid: #fbfaf6;
+    --ink: #1c1e26;
+    --muted: #636775;
+    --line: #e1ded5;
+    --field: #ffffff;
+    --chip: #f1efe8;
+    --chip-hover: #e8e5dc;
+    --accent: #b0563c;
+    --fd-blue: #334bff;
+    --on-accent: #ffffff;
+    --ok: #1d8a4b;
+    --bad: #c03d29;
+    --f-display: 'Silkscreen', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    --f-body: 'Bricolage Grotesque', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --f-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --panel: rgba(19, 21, 27, 0.9);
+      --panel-solid: #13151b;
+      --ink: #eceae4;
+      --muted: #9a9eaa;
+      --line: #2a2d37;
+      --field: #0d0f14;
+      --chip: #1c1f27;
+      --chip-hover: #252933;
+      --ok: #4cc27e;
+      --bad: #ff7a63;
+      --fd-blue: #7083ff;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --panel: rgba(19, 21, 27, 0.9);
+    --panel-solid: #13151b;
+    --ink: #eceae4;
+    --muted: #9a9eaa;
+    --line: #2a2d37;
+    --field: #0d0f14;
+    --chip: #1c1f27;
+    --chip-hover: #252933;
+    --ok: #4cc27e;
+    --bad: #ff7a63;
+    --fd-blue: #7083ff;
+    color-scheme: dark;
+  }
+
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body { background: var(--panel-solid); color: var(--ink); font-family: var(--f-body); font-size: 15px; overflow: hidden; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .app { position: relative; height: 100%; }
+
+  .stage {
+    position: absolute; inset: 0; overflow: hidden;
+    --sky-top: #8fbcd8; --sky-bot: #f6d2a6;
+    background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bot) 66%, var(--sky-bot) 100%);
+    transition: background 0.6s;
+  }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; cursor: grab; }
+  .stage canvas:active { cursor: grabbing; }
+  .stage.aerial canvas { cursor: default; }
+
+  .stars {
+    position: absolute; inset: 0 0 35% 0; opacity: 0; transition: opacity 0.6s; pointer-events: none;
+    background-image:
+      radial-gradient(1.5px 1.5px at 12% 18%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 28% 8%, #fff 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 44% 26%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 61% 12%, #fff 50%, transparent 51%),
+      radial-gradient(2px 2px at 73% 30%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 86% 6%, #fff 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 93% 22%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 52% 4%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 36% 38%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 80% 44%, #fff 50%, transparent 51%);
+  }
+  .stage.night .stars { opacity: 0.85; }
+  .orb {
+    position: absolute; top: 11%; right: 14%; width: 54px; height: 54px; pointer-events: none;
+    filter: drop-shadow(0 0 22px rgba(255, 236, 180, 0.85));
+  }
+  .orb i {
+    display: block; width: 100%; height: 100%; background: #fff3c4;
+    clip-path: polygon(30% 0, 70% 0, 70% 10%, 90% 10%, 90% 30%, 100% 30%, 100% 70%, 90% 70%, 90% 90%, 70% 90%, 70% 100%, 30% 100%, 30% 90%, 10% 90%, 10% 70%, 0 70%, 0 30%, 10% 30%, 10% 10%, 30% 10%);
+  }
+  .stage.night .orb { filter: drop-shadow(0 0 16px rgba(200, 210, 255, 0.6)); width: 40px; height: 40px; }
+  .stage.night .orb i { background: #eeeadd; }
+
+  .hud-top {
+    position: absolute; top: 16px; right: 16px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+    pointer-events: none;
+  }
+  .place {
+    font-family: var(--f-display); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase;
+    background: var(--panel); color: var(--ink); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line);
+  }
+  .coords { font-family: var(--f-mono); font-size: 11px; color: var(--ink); background: var(--panel); padding: 3px 8px; border-radius: 5px; font-variant-numeric: tabular-nums; }
+  .hud-bottom {
+    position: absolute; right: 16px; bottom: 16px; left: 16px; display: flex; flex-wrap: wrap; gap: 8px;
+    justify-content: flex-end; align-items: center; pointer-events: none;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px; background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font-size: 13px; max-width: 100%;
+  }
+  .pill .dot { width: 8px; height: 8px; border-radius: 2px; background: var(--muted); flex: none; }
+  .pill.ok .dot { background: var(--ok); }
+  .pill.bad .dot { background: var(--bad); }
+  .pill span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hint { transition: opacity 0.4s; }
+
+  .panel {
+    position: absolute; left: 20px; top: 20px; bottom: 20px; width: 340px; overflow: auto;
+    background: var(--panel); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--line); border-radius: 14px; padding: 22px;
+    display: flex; flex-direction: column; gap: 22px;
+  }
+  .brand { display: flex; flex-direction: column; gap: 12px; }
+  .brand-row { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 40px; height: 40px; display: block; flex: none; border-radius: 22%; box-shadow: 0 0 0 1px var(--line); }
+  .brand-text { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .byline { font-size: 12.5px; color: var(--muted); letter-spacing: 0.01em; text-decoration: none; align-self: flex-start; }
+  .byline:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+  .byline:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+  .byline b { color: var(--fd-blue); font-weight: 700; }
+  .mark { font-family: var(--f-display); font-weight: 700; font-size: 26px; line-height: 1; letter-spacing: 0.02em; }
+  .mark span { color: var(--accent); margin-left: 6px; }
+  .lede { margin: 0; color: var(--muted); line-height: 1.45; text-wrap: pretty; }
+
+  .step { display: flex; flex-direction: column; gap: 10px; }
+  .step-label {
+    display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .step-label b {
+    font-family: var(--f-display); font-weight: 400; width: 20px; height: 20px; display: inline-grid; place-items: center;
+    background: var(--ink); color: var(--panel-solid); border-radius: 4px; font-size: 11px; letter-spacing: 0;
+  }
+  .url-field { display: flex; align-items: center; background: var(--field); border: 1.5px solid var(--line); border-radius: 10px; padding: 0 12px; }
+  .url-field:focus-within { border-color: var(--accent); }
+  .url-field input {
+    flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font-family: var(--f-mono);
+    font-size: 14px; padding: 13px 0; outline: none;
+  }
+  .meta { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.5; }
+  .note { font-size: 13px; line-height: 1.4; color: var(--muted); }
+  .note:empty { display: none; }
+  .note.warn { color: var(--bad); }
+
+  .cities { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .city {
+    display: flex; flex-direction: column; gap: 8px; text-align: left; padding: 10px; background: var(--chip);
+    border: 1.5px solid transparent; border-radius: 10px;
+  }
+  .city:hover { background: var(--chip-hover); }
+  .city[aria-pressed="true"] { border-color: var(--accent); background: var(--field); }
+  .city .strip { display: grid; grid-template-columns: repeat(4, 1fr); height: 12px; border-radius: 3px; overflow: hidden; }
+  .city .nm { font-weight: 600; font-size: 14px; line-height: 1.1; }
+  .city .sub { font-size: 12px; color: var(--muted); }
+
+  .palettes { display: flex; flex-direction: column; gap: 6px; }
+  .pal {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--chip); border: 1.5px solid transparent;
+    border-radius: 9px; text-align: left; font-size: 14px;
+  }
+  .pal:hover { background: var(--chip-hover); }
+  .pal[aria-pressed="true"] { border-color: var(--accent); background: var(--field); }
+  .pal .sw { display: flex; gap: 3px; }
+  .pal .sw i { width: 14px; height: 14px; border-radius: 3px; display: block; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+
+  .seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--chip); border-radius: 9px; padding: 3px; gap: 3px; }
+  .seg button { border: 0; background: transparent; padding: 8px; border-radius: 7px; font-size: 14px; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--field); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+  .actions { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+  .fly {
+    border: 0; background: var(--accent); color: var(--on-accent); font-family: var(--f-display); font-size: 17px;
+    letter-spacing: 0.04em; padding: 15px 16px; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 10px;
+    box-shadow: 0 3px 0 rgba(0,0,0,.22);
+  }
+  .fly:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.22); }
+  .ghost { border: 1.5px solid var(--line); background: transparent; padding: 11px 14px; border-radius: 10px; font-weight: 600; font-size: 14px; }
+  .ghost:hover { background: var(--chip); }
+  .ghost:disabled { opacity: .5; cursor: progress; }
+
+  .modal { position: fixed; inset: 0; background: rgba(8, 10, 16, 0.6); display: grid; place-items: center; padding: 16px; z-index: 10; }
+  .modal-card {
+    background: var(--panel-solid); color: var(--ink); border-radius: 14px; padding: 18px; width: min(460px, 100%);
+    display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--line);
+  }
+  .modal-card img { width: 100%; border-radius: 8px; image-rendering: pixelated; }
+  .modal-card p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--panel-solid);
+    padding: 9px 14px; border-radius: 8px; font-size: 14px; z-index: 11;
+  }
+  .fail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: #1c1e26; font-size: 15px; }
+
+  @media (max-width: 760px) {
+    body { overflow: auto; }
+    .app { height: auto; display: flex; flex-direction: column; }
+    .stage { position: relative; height: 56vh; min-height: 320px; }
+    .panel {
+      position: static; width: auto; border-radius: 0; border: 0; border-top: 1px solid var(--line); overflow: visible;
+      padding: 20px 16px 28px; background: var(--panel-solid); backdrop-filter: none; -webkit-backdrop-filter: none;
+    }
+    .actions { order: -1; flex-direction: row; }
+    .actions .fly { flex: 1.4; }
+    .actions .ghost { flex: 1; }
+    .brand { order: -2; }
+    .lede { display: none; }
+    .logo { width: 34px; height: 34px; }
+    .mark { font-size: 22px; }
+    .hud-top { top: 12px; right: 12px; }
+    .hud-bottom { right: 12px; bottom: 12px; left: 12px; }
+    .hint { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stage, .stars, .hint { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage" id="stage">
+    <div class="stars"></div>
+    <div class="orb" id="orb"><i></i></div>
+    <canvas id="c" aria-label="3D pixel city whose rooftops form a QR code"></canvas>
+    <div class="hud-top">
+      <div class="place" id="place">New York</div>
+      <div class="coords" id="coords">40.71° N · 74.01° W</div>
+    </div>
+    <div class="hud-bottom">
+      <div class="pill hint" id="hint"><span>Drag to turn the city</span></div>
+      <div class="pill" id="scan" role="status" aria-live="polite"><i class="dot"></i><span>Checking the code…</span></div>
+    </div>
+  </div>
+
+  <aside class="panel" id="panel">
+    <header class="brand">
+      <div class="brand-row">
+        <img class="logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAALCklEQVR4nOzdX4hU1x0H8O+5M+qu+9fqzqzOaqFqa11pwNpaN9GHPDREimQDyUNapX0IgT61IZYWSmtpIIKlLaUvgeahBlJqQhUf1gpNUipVUtKUSAKh0dLIju6Mf1jdf8bszMk5s3M34+7szL137p059+z3A8PcXWcmGfY7Z373nnN/N4nWSqbTmV0FiQeEwDb182YIDEAipbZ71a1d3RyQSYrqNqNu4+pvlVd/q1G1fVlKfJAQeDeXy76tfp5Fiwg02dr0wG4hi48IIR5WP+4FA2sbHfhzUso3pHDO3syNvoUmakqg+/s3DRZk4Sm1+aS6bQEtJ5fU7URCJF4ZG7vyPiIWaaDXpTccEBDPqM39IAJGJOSLN3JXTyMikQQ6lRoYlkIeVpt7QLTYBSHFsXx+9CRCFmqg1/YPfN0pyiPqVR8FUT0SZ4qOOHJzbPRfCEkCIelLb3hBfTr+qMK8FUReqKyozDzd0dnVNj018TpC0PAIXdrhKxaOq1faCaKgJN5JOIlDje44NhTo1PrMQVnEcRCFRDg4lL+WfRkBBS45+tKZX6pP1W9AFCaJ4Y7O7qQqQd5EAIEC3Zce+IO6+wGIorGvo7Nn4/TUHd+H9/wGOtnXn/mTuj8Iomjt7Ojq3j49OXEKc7OPnvgKdCnMsjTbR9QMgyrU21SoX/P6BM+BLpcZHJmp2Qb9lB+eAl3aAWTNTK2z0+uOYt1A60NzPJpBBtjX2d39v6nJiYu1HlTzOHR5ldx7IDJEQiR21Jp8qbkWuTQDSGSQeplcsuTQazMgxBMgMonA+lprP6qWHKVVc1I29UwDIj+KQuyutkqvaslRWgJKZLClMroo0HpxPtczk/FURktZXWBRoMtnmhAZr1pW7wu0PgcQPG2K4mNPObPz7gt0+YRWothYmNn5oxycRKG4qpxsmR+hy30ziGKnMruVJQeXhVJczWe3FGjdngvsaETxtaWc4blA615zIIoxN8NzgZ5rnEgUW26Gk+XbXhDFm85wUqTTmW8UgQsgijlVbuxxdLNxEFlAZzlZ7pxPFHs6y7p+3gwiO2x2Stc0IbKBynKyfIEeovhTWdYlRy+I7NCrA90OIju060DzsmpkC4dhJqsw0GQVBpqswkCTVRhosgoDTVZhoMkqDDRZhYEmqzDQZBUGmqzCQJNVGGiyCgNNVknCYg8OzbW6HlL37rYf/zx/Acd+9WuY6vBzz/p6X/q96PdkMysDrf/I+o89NNR47/ZjMJd+n37eo34sAx0zp/7yaihBpniyKtD5sVHQ8mZNoHWJQWRFoHWYGWjSrAk0kcbj0GSV2I/QD/KIBlWIfaB5iI4qWT1TWMt5w2cBKZhlWXKk+tlw1VbLboQ+b/nU73K37AJt+1qG5Y6H7cgqDDRZhYEmqzDQZJVlexy6lRYeauSOangY6Ii5Z89o9WY19SFFN9yc9AlG9KUzEgYxcZH+8ONP+BpFwzoFTIe6VrD9np1T7/VswBo6RDrIOmQnQzoNTH8o9Aecy2O9Y8kRkihPMnBfl2VIfQx0CJpxYi5D7Q1Ljga4JUazlrDyVLP6OEI3QNfKzeYGmousqmOgAzrVgjC7OEovjYEOIKyuTBQ+Bton1rFmY6B9CjPMlTODlfz2rKPPGBdoPSvnh9+vf33Yy+8OlRu6MMLsnstYa+bRbRDJbwP/jAu034U6h+Ff0MVAjYTLS5AXcqeqGWzveBzao0YCpUP5mM/1IAuf7/eba7lioCMW1oIg/WHg2er1MdAeBRmho1jdxpG6Ngbag6DlRhTrLky/TEarMdARiTJ0DPTSGGgPgnRnijp0XMtRHQMdgWaMoBylq+NMoQcmztrxxNrqOEJHoFnlAMuOxThC1xH0gp3UGhyhySoMdIzxm2AxBpqswkCTVbhTGGO8AthiHKHrCFKnMmitwxE6xnia1mIcoSPAoLUOA+2B3xm5ZpQcPCWrOgY6AnqEZh3dGgy0B0F2DKMcQZt10mxy1SasaNsCJ9GFuOBOoQdBFgG5o3QUs3lRjv4rO76C7v7vo733mxBi5fzv702/h6mbr2Ii9xJMxhHaAx3KIKGOopljlG3IejY8i/4vj2D1mm/dF2Zt5eodWLPxF+jfflZtD8JUDLRHQRfUh9nUMcpSY83Gn5cCXY8Oc+qLf8aK9i/BRAy0R0FLBz2a6stKNFom6A9GVGHuWPs4utJPe368k+zF5z5/FCZioH1oZEH9yYCBbEZT9d6Bn8GvVZ1fUx+EYZiGO4U+6LKjkbrYLRnc8qVas0Z3JPd6KbhGtXU/hMSKdQhi9ZoDakfxJEzCQPvg9sRo9KvfpEkRfVQjqFWdu2Aalhw+BelearJEci2CcpJrYBoGOgCbWggUi1MIShbvwjQMdACtbsfltuYN45vik5n/Iig92WIa1tABuYFuRT38mNuwMYRJlru3/46gZsbPwjQcoRvQimtnh919tFiYxO3sMf/Pm72FyevHYRoGukHNbEY+3EDT9Fpuj/0ed+/8w9dzbl35qfowBK+/o8JAh8BtRh7VaK1r5ajCXCILuPX/w6r8+Junh9/66EeYvnUaJmINHaLKQIdVWzerrJm9l0X+w++iK/U99GSeg5PoWfSYmfG/4va13+He1EWYSvSlMxIx5jc4S11KLQpBFxN5vcCQ38u/+XnvbV1DSLZ9obTqrvBJDh9P/QeFe1dhutgHOg7c6ezK8FUuVnJD5h6GY0ek4Bhosgp3CskqDDRZhYEmqzDQZBUGmqzCQJNVGGiyCgNNVmGgySoMNFmFgSarMNBkFQaarMJAk1V0oIsgskNRB3oGRHaY0YEeB5Edxh0I5EFkA5VlBxKjILKByrJuY3AZRHa47EiJD0BkAZ1lJyHwLogsoLMs1H2yL535GJxkoXgrXs9lV+kQz6rbORDFm87wbGlUllK+AaIYczM8F2jhmNe5msgHN8PC/YWqoz9Ud1tAFD+XVP28VW9U7gieAFE8zWd3PtAJkXgFRDFUmd35QI+NXXlf3Y2AKF5Gytktue/Ys4R8EUQxsjCzYuED1M7heXUX7QWmicJxQe0MDlX+YtHsoJDC/zW+iFqgWlZFtQf2pTIj6l8eBZGpJM5cz2f3L/x11fUbRUccAZHBlspootovZybvZDs6u9rUAP4QiIwjj97IZatexlbUepoqPf6tHrETRKaQeEeVGl9d6p9rLhlNOIlDIDJIvUzWDLQ+YC0cMNRkBJ3FykmUahKoY2py4mJHZ7c+93AfiFrn+etj2d/We1DdQGvTUxNvdnT2bFSbrKepBcRLagLlh14e6SnQ2vTUndMdXd3b1eYgiJpF4IQKs+ey13OgtenJiVMq1NvAUFMz6DCPZb8NH/0XfQVav7AK9WssPyh6pTJDj8y+mon6DXRJqfzgjiJF53mvNfNCAg1Irc8clEUcB1FI9KG5/LXsywiooV4c+j+cEIkdevYGRI1QGdJZaiTMWkMjdKW+9IYX1Mv9GES+yaPXc1d/ghAEqqGrUceqX2/v6jkjJAbUx2QriOqROFN0xHeWWmgURGgjdKVUamBYCnkYPPOFqrugF+fn86MnEbJIAu1al95wQEA8ozb3gwgY0ecA3shdPY2IRBpoV3//psGCLDylNp8Em9ksN5fU7YRuNVBvYVEYmhLoSmvTA7uFLD4ihHhY/bgX7HpqGz0Rck73mtPtuW7mRt9CEzU90Ask0+nMroLEA0JAT6lvVv9HA2pnIaW2e9WtHQy8aXRg9ZXTxkvX55m7pMll3Wxc92fO5bJvY66jbUt8CgAA//9Y6CXkAAAABklEQVQDAPbSoepsoUWFAAAAAElFTkSuQmCC" alt="FD Studio" width="40" height="40">
+        <div class="brand-text">
+          <div class="mark">SKYLINE<span>QR</span></div>
+          <a class="byline" href="https://github.com/DantinaWay/skyline-qr" target="_blank" rel="noopener">Open source from FD<b>.</b> Studio <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <p class="lede">Type a link, pick a city, then fly up. Seen from above, the rooftops form a QR code any phone camera can scan.</p>
+    </header>
+
+    <section class="step">
+      <label class="step-label" for="url"><b>1</b> Your link</label>
+      <div class="url-field"><input id="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" value="https://example.com" placeholder="yourwebsite.com"></div>
+      <div class="meta" id="meta"></div>
+      <div class="note" id="note"></div>
+    </section>
+
+    <section class="step">
+      <div class="step-label"><b>2</b> City</div>
+      <div class="cities" id="cities"></div>
+    </section>
+
+    <section class="step">
+      <div class="step-label"><b>3</b> Colours</div>
+      <div class="palettes" id="palettes"></div>
+      <div class="seg" role="group" aria-label="Time of day">
+        <button id="day" type="button" aria-pressed="true">Day</button>
+        <button id="night" type="button" aria-pressed="false">Night</button>
+      </div>
+    </section>
+
+    <div class="actions">
+      <button class="fly" id="fly" type="button">Fly up <span aria-hidden="true">↑</span></button>
+      <button class="ghost" id="dl" type="button">Download PNG</button>
+    </div>
+  </aside>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <strong id="modal-title">Your skyline QR</strong>
+    <img id="modal-img" alt="Top-down view of the city forming a QR code">
+    <p>Right-click or long-press the image and choose “Save image”.</p>
+    <button class="ghost" id="modal-close" type="button">Close</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+(function () {
+  'use strict';
+  const $ = (s) => document.querySelector(s);
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const stage = $('#stage'), canvas = $('#c'), panel = $('#panel');
+
+  if (!window.THREE || !window.qrcode) {
+    stage.insertAdjacentHTML('beforeend', '<div class="fail">The 3D engine did not load. Check your connection and reload the page.</div>');
+    return;
+  }
+  if (qrcode.stringToBytesFuncs && qrcode.stringToBytesFuncs['UTF-8']) qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+
+  /* ---------- helpers ---------- */
+  const hash = (a, b, k = 0) => { const x = Math.sin(a * 127.1 + b * 311.7 + k * 74.7 + 13.37) * 43758.5453; return x - Math.floor(x); };
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  const colCache = {};
+  const col = (h) => colCache[h] || (colCache[h] = new THREE.Color(h));
+  const mixc = (a, b, t) => col(a).clone().lerp(col(b), t);
+  const pick = (arr, a, b, k) => arr[Math.floor(hash(a, b, k) * arr.length) % arr.length];
+  const WHITE = new THREE.Color(1, 1, 1);
+  const Z2 = [0, 0];
+
+  /* ---------- geometry batching ---------- */
+  class Layer {
+    constructor() { this.p = []; this.n = []; this.c = []; this.u = []; this.i = []; this.v = 0; }
+    quad(P, N, C, U) {
+      for (let k = 0; k < 4; k++) {
+        const q = P[k]; this.p.push(q[0], q[1], q[2]); this.n.push(N[0], N[1], N[2]); this.c.push(C.r, C.g, C.b);
+        const t = U ? U[k] : Z2; this.u.push(t[0], t[1]);
+      }
+      const v = this.v; this.i.push(v, v + 1, v + 2, v, v + 2, v + 3); this.v += 4;
+    }
+    geo() {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(this.p, 3));
+      g.setAttribute('normal', new THREE.Float32BufferAttribute(this.n, 3));
+      g.setAttribute('color', new THREE.Float32BufferAttribute(this.c, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(this.u, 2));
+      g.setIndex(this.i);
+      return g;
+    }
+  }
+  let S = null, maxTop = 0, city = null;
+
+  function face(d, x0, x1, y0, y1, z0, z1, C, L, uv) {
+    switch (d) {
+      case 't': L.quad([[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]], [0, 1, 0], C); break;
+      case 'f': L.quad([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], [0, 0, 1], C, uv && uv(x1 - x0)); break;
+      case 'b': L.quad([[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]], [0, 0, -1], C, uv && uv(x1 - x0)); break;
+      case 'r': L.quad([[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], [1, 0, 0], C, uv && uv(z1 - z0)); break;
+      case 'l': L.quad([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], [-1, 0, 0], C, uv && uv(z1 - z0)); break;
+    }
+  }
+  function box(x0, x1, y0, y1, z0, z1, top, side, o = {}) {
+    if (y1 <= y0) return;
+    const sideL = o.wall ? S.wall : (o.layer || S.solid);
+    const topL = o.wall ? S.solid : (o.layer || S.solid);
+    let uv = null;
+    if (o.wall) {
+      const vb = o.vb !== undefined ? o.vb : y0;
+      const v0 = (y0 - vb) * o.sv + o.ov, v1 = (y1 - vb) * o.sv + o.ov, ou = o.ou;
+      uv = (w) => [[ou, v0], [ou + w * o.su, v0], [ou + w * o.su, v1], [ou, v1]];
+    }
+    const T = typeof top === 'string' ? col(top) : top;
+    const Sd = typeof side === 'string' ? col(side) : side;
+    const sk = o.skip || '';
+    if (T && !sk.includes('t')) face('t', x0, x1, y0, y1, z0, z1, T, topL);
+    for (const d of 'fbrl') if (!sk.includes(d)) face(d, x0, x1, y0, y1, z0, z1, Sd, sideL, uv);
+    if (o.track !== false && y1 > maxTop) maxTop = y1;
+  }
+  // a building with windowed walls
+  function bld(x0, x1, z0, z1, y0, y1, wall, roof, seed) {
+    box(x0, x1, y0, y1, z0, z1, roof, wall, {
+      wall: true, su: city.win[0] / 8, sv: city.win[1] / 8,
+      ou: Math.floor(hash(seed, 3, 7) * 8) / 8, ov: Math.floor(hash(seed, 5, 7) * 8) / 8, vb: y0
+    });
+  }
+  // voxel hill as a heightfield; never touches the code platform
+  function mound(ctx, cx, cz, R, H, shape, topColor, sideColor, s = 0.8) {
+    const n = Math.ceil(R / s), W = 2 * n + 1, g = new Float32Array(W * W);
+    const lim = ctx.E + 0.6;
+    for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
+      const x = cx + j * s, z = cz + i * s, d = Math.hypot(i * s, j * s) / R;
+      let h = 0;
+      if (d < 1 && !(Math.abs(x) < lim && Math.abs(z) < lim)) {
+        h = H * shape(d) * (0.93 + 0.14 * hash(i + cx, j + cz, 11));
+        h = Math.max(0.3, Math.round(h / 0.3) * 0.3);
+      }
+      g[(i + n) * W + (j + n)] = h;
+    }
+    for (let i = 0; i < W; i++) for (let j = 0; j < W; j++) {
+      const h = g[i * W + j]; if (!h) continue;
+      const x0 = cx + (j - n) * s - s / 2, z0 = cz + (i - n) * s - s / 2, x1 = x0 + s, z1 = z0 + s;
+      face('t', x0, x1, 0, h, z0, z1, col(topColor(h / H, i, j)), S.solid);
+      const nb = [['f', i + 1, j], ['b', i - 1, j], ['r', i, j + 1], ['l', i, j - 1]];
+      for (const [d, ii, jj] of nb) {
+        const hn = (ii < 0 || jj < 0 || ii >= W || jj >= W) ? 0 : g[ii * W + jj];
+        if (h > hn) face(d, x0, x1, hn, h, z0, z1, col(sideColor(h / H)), S.solid);
+      }
+      if (h > maxTop) maxTop = h;
+    }
+    return g[n * W + n];
+  }
+  function setbackTower(b, H, wall, roof, spire) {
+    const tiers = [[0, 0.55], [0.32, 0.27], [0.72, 0.18]];
+    let y = b.lo;
+    for (const [ins, f] of tiers) {
+      const h = H * f;
+      bld(b.x0 + ins, b.x1 - ins, b.z0 + ins, b.z1 - ins, y, y + h, wall, roof, b.r * 13 + b.c + ins * 10);
+      y += h;
+    }
+    if (spire) { const cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2; box(cx - 0.09, cx + 0.09, y, y + H * 0.2, cz - 0.09, cz + 0.09, spire, spire); }
+  }
+  function dome(cx, cz, y, widths, hStep, color, side) {
+    for (const w of widths) { box(cx - w / 2, cx + w / 2, y, y + hStep, cz - w / 2, cz + w / 2, color, side); y += hStep; }
+    return y;
+  }
+  function clouds(ctx) {
+    const { E } = ctx;
+    for (let k = 0; k < 6; k++) {
+      const cx = lerp(-E * 1.4, E * 1.4, k / 5) + (hash(k, 1, 91) - 0.5) * 6;
+      const cy = maxTop + 2 + hash(k, 2, 91) * 4, cz = -E - 6 - hash(k, 3, 91) * 10;
+      const parts = 3 + Math.floor(hash(k, 4, 91) * 3);
+      for (let p = 0; p < parts; p++) {
+        const w = 1.6 + hash(k, p, 92) * 2.4, h = 0.7 + hash(k, p, 93) * 0.8, ox = (p - parts / 2) * 1.3;
+        box(cx + ox - w / 2, cx + ox + w / 2, cy, cy + h, cz - 0.8, cz + 0.8, '#ffffff', '#f4f6fa', { layer: S.cloud, track: false });
+      }
+    }
+  }
+
+  function suspensionBridge(x0, x1, bz, A, B, H, c) {
+    box(x0, x1, 0.9, 1.15, bz - 0.6, bz + 0.6, c.deck, c.deck2);
+    for (const tx of [A, B]) {
+      box(tx - 0.45, tx + 0.45, 0, H, bz - 0.8, bz - 0.35, c.tower, c.tower2);
+      box(tx - 0.45, tx + 0.45, 0, H, bz + 0.35, bz + 0.8, c.tower, c.tower2);
+      box(tx - 0.45, tx + 0.45, H * 0.68, H * 0.83, bz - 0.8, bz + 0.8, c.tower, c.tower2);
+      box(tx - 0.5, tx + 0.5, H, H + 0.2, bz - 0.85, bz + 0.85, c.tower2, c.tower2);
+    }
+    const mid = (A + B) / 2, half = (B - A) / 2, rise = H - 0.15 - 1.25;
+    for (let x = x0; x <= x1; x += 0.32) {
+      let y;
+      if (x < A) y = 1.25 + rise * Math.pow((x - x0) / (A - x0), 2);
+      else if (x > B) y = 1.25 + rise * Math.pow((x1 - x) / (x1 - B), 2);
+      else y = 1.25 + rise * Math.pow((x - mid) / half, 2);
+      for (const zz of [bz - 0.58, bz + 0.58]) box(x - 0.06, x + 0.06, y - 0.06, y + 0.06, zz - 0.06, zz + 0.06, c.cable, c.cable, { track: false });
+    }
+  }
+  function palm(x, z, y, hh) {
+    box(x - 0.06, x + 0.06, y, y + hh, z - 0.06, z + 0.06, '#8a6a45', '#7a5c3a', { track: false });
+    box(x - 0.55, x + 0.55, y + hh, y + hh + 0.12, z - 0.12, z + 0.12, '#3f8a46', '#357a3c', { track: false });
+    box(x - 0.12, x + 0.12, y + hh, y + hh + 0.12, z - 0.55, z + 0.55, '#3f8a46', '#357a3c', { track: false });
+    box(x - 0.16, x + 0.16, y + hh + 0.12, y + hh + 0.24, z - 0.16, z + 0.16, '#4a9a50', '#3f8a46', { track: false });
+  }
+  // stacked, tapering tower with optional open legs (Tokyo Tower, the Eiffel Tower)
+  function latticeTower(tx, tz, o) {
+    let y = 0;
+    for (let i = 0; i < o.levels; i++) {
+      const f = i / o.levels, w = o.tip + o.base * Math.pow(1 - f, o.pow), h = o.lh, [c, c2] = o.color(i);
+      if (i < o.legs) {
+        const lw = o.lw;
+        for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+          const ax = tx + sx * (w / 2 - lw / 2), az = tz + sz * (w / 2 - lw / 2);
+          box(ax - lw / 2, ax + lw / 2, y, y + h, az - lw / 2, az + lw / 2, c, c2);
+        }
+        if (o.arch && i === o.legs - 1) {
+          box(tx - w / 2, tx + w / 2, y + h * 0.55, y + h, tz - w / 2, tz - w / 2 + lw, c, c2);
+          box(tx - w / 2, tx + w / 2, y + h * 0.55, y + h, tz + w / 2 - lw, tz + w / 2, c, c2);
+          box(tx - w / 2, tx - w / 2 + lw, y + h * 0.55, y + h, tz - w / 2, tz + w / 2, c, c2);
+          box(tx + w / 2 - lw, tx + w / 2, y + h * 0.55, y + h, tz - w / 2, tz + w / 2, c, c2);
+        }
+      } else box(tx - w / 2, tx + w / 2, y, y + h, tz - w / 2, tz + w / 2, c, c2);
+      if (o.decks.includes(i)) box(tx - w / 2 - 0.35, tx + w / 2 + 0.35, y + h - 0.3, y + h + 0.12, tz - w / 2 - 0.35, tz + w / 2 + 0.35, o.deck[0], o.deck[1]);
+      y += h;
+    }
+    box(tx - 0.08, tx + 0.08, y, y + o.antenna, tz - 0.08, tz + 0.08, o.deck[0], o.deck[1]);
+  }
+  // low surrounding city outside the frame, for depth in the side view
+  function outerCity(ctx, zFrom, zTo, xR, keep, hFn) {
+    const { E, P } = ctx;
+    for (let z = zFrom; z < zTo; z++) for (let x = -xR; x < xR; x++) {
+      if (Math.abs(x + 0.5) < E + 2.5 && Math.abs(z + 0.5) < E + 2.5) continue;
+      if (!keep(x + 0.5, z + 0.5) || hash(x, z, 81) > 0.5) continue;
+      bld(x + 0.05, x + 0.95, z + 0.05, z + 0.95, 0, hFn(x, z), pick(P.walls, x, z, 83), pick(P.roofs, x, z, 84), x * 31 + z);
+    }
+  }
+  const awayFrom = (cx, cz, r) => (x, z) => Math.abs(x - cx) > r || Math.abs(z - cz) > r;
+  function castle(cx, cz, y, R, c, c2) {
+    const t = 0.3, h = 0.8;
+    box(cx - R, cx + R, y, y + h, cz + R - t, cz + R, c, c2);
+    box(cx - R, cx + R, y, y + h, cz - R, cz - R + t, c, c2);
+    box(cx - R, cx - R + t, y, y + h, cz - R + t, cz + R - t, c, c2);
+    box(cx + R - t, cx + R, y, y + h, cz - R + t, cz + R - t, c, c2);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(cx + sx * R - 0.35, cx + sx * R + 0.35, y, y + 1.4, cz + sz * R - 0.35, cz + sz * R + 0.35, c, c2);
+    box(cx - 0.5, cx + 0.5, y, y + 1.8, cz - 0.5, cz + 0.5, c, c2);
+  }
+
+  /* ---------- cities ---------- */
+  const night = (h) => mixc(h, '#060a18', 0.55);
+  const CITIES = {
+    nyc: {
+      name: 'New York', sub: 'Brick, steel, water tanks', coords: '40.71° N · 74.01° W',
+      tex: 'office', glass: '#4c586c', glass2: '#6c7a90', win: [2.4, 2.8], maxBlock: [3, 3],
+      palettes: [
+        { name: 'Brownstone', ground: '#ddd7cc', ground2: '#d2cbbe', roofs: ['#2a2522', '#332b27', '#1f1d1c', '#3a2f2a'], walls: ['#9c4f3a', '#b0634a', '#7d4636', '#c4a589', '#8a8a86', '#a9573f'], cliff: '#6d6a64', base: '#9fc0cf', accent: '#a9502f', skyD: ['#8fbcd8', '#f6d2a6'], skyN: ['#0b1230', '#2e2f5c'] },
+        { name: 'Steel & Glass', ground: '#e4e7ea', ground2: '#d8dce0', roofs: ['#1d2530', '#262f3b', '#171c24', '#2c3440'], walls: ['#7f95ab', '#9aaabb', '#5d7186', '#b8c4cf', '#6c7a88'], cliff: '#5f6b76', base: '#a8c8d8', accent: '#36648f', skyD: ['#86b0d3', '#e3ecf2'], skyN: ['#060a18', '#1d2a4a'] },
+        { name: 'Art Deco', ground: '#efe5d1', ground2: '#e5d8bf', roofs: ['#1f3a33', '#253f2e', '#1b2e2a', '#2f3a2c'], walls: ['#d9c49a', '#c9a96e', '#e6d8b8', '#b98f52', '#a8b3a0'], cliff: '#7a6a4f', base: '#a5c9c2', accent: '#9a6f24', skyD: ['#b9d3cc', '#f6dcae'], skyN: ['#120f24', '#3d2f52'] }
+      ],
+      terrain: () => 0.3,
+      height(b, ctx) {
+        const cx = (b.c + b.w / 2) / ctx.N - 0.5, cz = (b.r + b.d / 2) / ctx.N - 0.5;
+        const d = Math.min(1, Math.hypot(cx, cz) * 2);
+        let h = 1.6 + Math.pow(hash(b.r, b.c, 1), 2) * 9 * (1.15 - 0.5 * d);
+        if (hash(b.r, b.c, 2) < 0.07) h += 6;
+        return Math.round(h * 4) / 4;
+      },
+      finder(b, ctx) {
+        const P = ctx.P;
+        setbackTower(b, 15 + hash(b.r, b.c, 8) * 5, pick(P.walls, b.r, b.c, 4), P.roofs[0], '#2a2a2e');
+      },
+      detail(b, ctx) {
+        if (b.h > 2.5 && hash(b.r, b.c, 12) < 0.4) {
+          const x = b.x0 + 0.1, z = b.z0 + 0.1, y = b.top;
+          box(x + 0.04, x + 0.3, y, y + 0.18, z + 0.04, z + 0.3, '#2d2622', '#2d2622');
+          box(x, x + 0.34, y + 0.18, y + 0.6, z, z + 0.34, '#4a3526', '#5a4030');
+          box(x + 0.07, x + 0.27, y + 0.6, y + 0.72, z + 0.07, z + 0.27, '#3a2a20', '#3a2a20');
+        }
+      },
+      extras(ctx) {
+        const { E, N, Q, tAt, dark } = ctx;
+        // Liberty Island
+        const lx = -E - 4, lz = E - 4, g = '#6fa58f', g2 = '#5c907b';
+        box(lx - 1.6, lx + 1.6, 0, 0.35, lz - 1.6, lz + 1.6, '#7d9a6a', '#6d6a5f');
+        box(lx - 0.9, lx + 0.9, 0.35, 0.75, lz - 0.9, lz + 0.9, '#cfc6b4', '#b9b09d');
+        box(lx - 0.45, lx + 0.45, 0.75, 2.05, lz - 0.45, lz + 0.45, '#d8cfbd', '#c4baa6');
+        box(lx - 0.3, lx + 0.3, 2.05, 3.6, lz - 0.25, lz + 0.25, g, g2);
+        box(lx - 0.17, lx + 0.17, 3.6, 3.95, lz - 0.17, lz + 0.17, g, g2);
+        box(lx - 0.24, lx + 0.24, 3.9, 4.0, lz - 0.24, lz + 0.24, g, g2);
+        box(lx + 0.2, lx + 0.36, 3.2, 4.6, lz - 0.08, lz + 0.08, g, g2);
+        box(lx + 0.17, lx + 0.39, 4.6, 4.85, lz - 0.11, lz + 0.11, '#f0c04e', '#d49a2e');
+        // suspension bridge to the right
+        suspensionBridge(E, E + 18, -Math.round(E * 0.3), E + 4, E + 12, 5.4,
+          { deck: '#6b6560', deck2: '#57524d', tower: '#b9a98f', tower2: '#a3937a', cable: '#3a3a3a' });
+        // yellow cabs on light streets
+        for (let r = -Q; r < N + Q; r++) for (let c = -Q; c < N + Q; c++) {
+          const inCode = r >= 0 && r < N && c >= 0 && c < N;
+          if ((inCode && dark(r, c)) || hash(r, c, 71) > 0.05) continue;
+          const x = c - N / 2 + 0.5, z = r - N / 2 + 0.5, y = tAt(r, c), along = hash(r, c, 72) < 0.5;
+          const hx = along ? 0.24 : 0.12, hz = along ? 0.12 : 0.24;
+          box(x - hx, x + hx, y, y + 0.16, z - hz, z + hz, '#f2c230', '#e0ac1c', { track: false });
+        }
+      }
+    },
+    tokyo: {
+      name: 'Tokyo', sub: 'Neon, towers, Mt Fuji', coords: '35.68° N · 139.69° E',
+      tex: 'office', glass: '#56606e', glass2: '#7a8594', win: [2.6, 3.0], maxBlock: [2, 3],
+      neon: ['#ff3d7f', '#2de2e6', '#ffd23f', '#9d4dff', '#ff8a3d', '#4dff9a'],
+      palettes: [
+        { name: 'Shinjuku', ground: '#e6e3de', ground2: '#dad6cf', roofs: ['#26272c', '#2f3036', '#1f2025', '#36373d'], walls: ['#b9b6ae', '#9d9a94', '#d1cdc4', '#8a8f96', '#c7bfae', '#a7aeb5'], cliff: '#6e6f72', base: '#c3c8bd', water: '#9fbfc7', accent: '#c92c63', skyD: ['#a9c6de', '#f4d9c8'], skyN: ['#100822', '#3b1650'] },
+        { name: 'Sakura', ground: '#f3e6e8', ground2: '#ebdadd', roofs: ['#3b2433', '#45293a', '#2f1d2a', '#4d3040'], walls: ['#e9c9cf', '#d6a9b3', '#f2e0e3', '#c48f9c', '#bfb3b8', '#e3d3c6'], cliff: '#7b6066', base: '#dcc9cc', water: '#a8c4cf', accent: '#bf4a6c', skyD: ['#c9d8ea', '#f7dde2'], skyN: ['#1a0d26', '#4a1f48'] },
+        { name: 'Showa', ground: '#ebe3d3', ground2: '#e0d6c3', roofs: ['#2b3a2f', '#33402f', '#243028', '#3d3b2a'], walls: ['#c9b48f', '#a99573', '#d8c9a8', '#8f8a74', '#b6a07a', '#9fa58c'], cliff: '#6b6250', base: '#c9c7ae', water: '#9fbdb8', accent: '#a85a22', skyD: ['#bcd2c9', '#f3dcb4'], skyN: ['#0f1420', '#3a3226'] }
+      ],
+      terrain: () => 0.25,
+      height(b) {
+        let h = 1.3 + Math.pow(hash(b.r, b.c, 1), 1.5) * 7.5;
+        if (hash(b.r, b.c, 2) < 0.05) h += 4;
+        return Math.round(h * 4) / 4;
+      },
+      finder(b, ctx) {
+        setbackTower(b, 11 + hash(b.r, b.c, 8) * 3, pick(ctx.P.walls, b.r, b.c, 4), ctx.P.roofs[0], '#7a1f1a');
+      },
+      detail(b, ctx) {
+        const y = b.top;
+        if (hash(b.r, b.c, 13) < 0.6) box(b.x0 + 0.1, b.x0 + 0.32, y, y + 0.16, b.z0 + 0.1, b.z0 + 0.3, '#3e4046', '#4a4c52');
+        if (b.w * b.d > 1 && hash(b.r, b.c, 14) < 0.5) box(b.x1 - 0.32, b.x1 - 0.1, y, y + 0.16, b.z1 - 0.3, b.z1 - 0.1, '#3e4046', '#4a4c52');
+        if (b.h < 2.5) return;
+        const neon = city.neon;
+        if (hash(b.r, b.c, 15) < 0.65) { // vertical sign on the street-facing front
+          const x = b.x0 + 0.12 + hash(b.r, b.c, 16) * Math.max(0, b.w - 0.45), top = Math.min(b.top - 0.4, b.lo + 0.9 + 1 + hash(b.r, b.c, 17) * 2.6);
+          box(x, x + 0.18, b.lo + 0.9, top, b.z1, b.z1 + 0.06, null, col(pick(neon, b.r, b.c, 18)), { layer: S.neon, track: false, skip: 'b' });
+        }
+        if (hash(b.r, b.c, 19) < 0.45) { // side sign
+          const z = b.z0 + 0.15, top = Math.min(b.top - 0.4, b.lo + 1.2 + hash(b.r, b.c, 20) * 2.2);
+          box(b.x0 - 0.06, b.x0, b.lo + 1, top, z, z + 0.18, null, col(pick(neon, b.r, b.c, 21)), { layer: S.neon, track: false, skip: 'r' });
+        }
+        if (hash(b.r, b.c, 22) < 0.3) { // band near the top
+          box(b.x0 + 0.1, b.x1 - 0.1, b.top - 0.55, b.top - 0.3, b.z1, b.z1 + 0.05, null, col(pick(neon, b.r, b.c, 23)), { layer: S.neon, track: false, skip: 'b' });
+        }
+      },
+      extras(ctx) {
+        const { E, P } = ctx;
+        face('t', -500, 500, -1, -0.01, E + 1, 500, ctx.night ? night(P.water) : col(P.water), S.solid);
+        const tx = E + 5, tz = -E + 3;
+        outerCity(ctx, -E - 12, E + 1, E + 14, awayFrom(tx, tz, 2.4), (x, z) => 0.4 + Math.pow(hash(x, z, 82), 2) * 3);
+        latticeTower(tx, tz, {
+          levels: 16, tip: 0.3, base: 2.9, pow: 1.6, lh: 0.78, legs: 4, lw: 0.5, decks: [5, 10], antenna: 2.6,
+          color: (i) => Math.floor(i / 2) % 2 === 0 ? ['#e8452c', '#c9351f'] : ['#f2efe8', '#dcd7cc'], deck: ['#f2efe8', '#d9d4ca']
+        });
+        // Mt Fuji far behind
+        const n = ctx.night;
+        mound(ctx, E * 0.3, -E - 27, 18, 11, (d) => Math.min(0.94, Math.pow(1 - d, 1.5)),
+          (t) => t > 0.66 ? (n ? '#c9cede' : '#f3f5f7') : (n ? '#2c3348' : '#6c7a93'),
+          (t) => t > 0.66 ? (n ? '#aab0c2' : '#dfe3ea') : (n ? '#232a3c' : '#5b6882'), 1.2);
+      }
+    },
+    rio: {
+      name: 'Rio de Janeiro', sub: 'Hillside colour, Sugarloaf', coords: '22.91° S · 43.17° W',
+      tex: 'house', glass: '#4a3f3a', glass2: '#4a3f3a', win: [1.3, 1.5], maxBlock: [2, 2], lightHouses: 0.35,
+      palettes: [
+        { name: 'Favela Pop', ground: '#efe4cf', ground2: '#e7d8bc', roofs: ['#4a2a22', '#2e3640', '#3a2b3c', '#2d3a33', '#4b3324'], walls: ['#f28c3a', '#2bb3a3', '#f2c94c', '#e8578a', '#4f86d9', '#8fd16a', '#f4f1ea'], lightRoof: '#ece4d5', cliff: '#8a6a4a', base: '#5fb3c4', sand: '#f1dfb0', accent: '#12806f', skyD: ['#6fc0e6', '#ffd8a0'], skyN: ['#0a1430', '#43305e'] },
+        { name: 'Pastel Morning', ground: '#f4ebdc', ground2: '#ede1cc', roofs: ['#4a3530', '#34404a', '#43354a', '#35443c'], walls: ['#f7c6a5', '#bfe3dc', '#f6e3a3', '#f2b8c6', '#bcd0f2', '#f4f1ea'], lightRoof: '#f1eadf', cliff: '#9a7d62', base: '#7cc4d2', sand: '#f4e5c0', accent: '#c4603f', skyD: ['#a8d8ec', '#fde3c8'], skyN: ['#101a36', '#4a3a66'] },
+        { name: 'Terracotta', ground: '#f0e5d2', ground2: '#e8dac2', roofs: ['#4a2418', '#3b1f16', '#56301f', '#2f2a26'], walls: ['#c96f4a', '#d98b5f', '#e8c39e', '#b5543a', '#efe2cc', '#a65f45'], lightRoof: '#efe6d6', cliff: '#7f5a40', base: '#58a9b8', sand: '#efd9a8', accent: '#a8492f', skyD: ['#86bfdc', '#f8c99a'], skyN: ['#140c22', '#4a2638'] }
+      ],
+      terrain(v, u) {
+        const d = Math.max(0, 0.75 - v) / 0.75, bump = 0.85 + 0.35 * Math.sin(u * Math.PI * 1.3 + 0.4);
+        return Math.max(0.25, Math.round((0.25 + Math.pow(d, 1.3) * 6.5 * bump) / 0.35) * 0.35);
+      },
+      height(b) { return 0.1 + 0.5 * (1 + Math.floor(hash(b.r, b.c, 1) * 3.2)); },
+      lightHeight(b) { return 0.45 + Math.floor(hash(b.r, b.c, 5) * 2) * 0.5; },
+      finder(b, ctx) { setbackTower(b, 3.6, pick(ctx.P.walls, b.r, b.c, 4), ctx.P.roofs[1], null); },
+      detail(b, ctx) {
+        const y = b.top;
+        if (hash(b.r, b.c, 12) < 0.3) box(b.x1 - 0.38, b.x1 - 0.1, y, y + 0.26, b.z0 + 0.1, b.z0 + 0.38, '#1d3d73', '#2a5596');
+        if (b.w * b.d > 1 && hash(b.r, b.c, 13) < 0.35) {
+          const xm = b.w > 1 ? b.x0 + 1 : b.x1;
+          bld(b.x0, xm, b.z0, b.z0 + 1, y, y + 0.5, pick(ctx.P.walls, b.r, b.c, 14), pick(ctx.P.roofs, b.r, b.c, 15), b.r * 7 + b.c);
+        }
+      },
+      extras(ctx) {
+        const { E, P } = ctx, n = ctx.night;
+        // Copacabana promenade, sand and surf
+        const zA = E, zB = E + 1.2, zC = E + 4.6, xa = -E - 9, xb = E + 9;
+        box(xa, xb, 0, 0.2, zA, zB, null, '#bdb5a6');
+        for (let x = xa; x < xb; x += 0.4) for (let j = 0; j < 3; j++) {
+          const z = zA + j * 0.4, wave = j === Math.round(1 + Math.sin(x * 0.9));
+          face('t', x, x + 0.4, 0, 0.2, z, z + 0.4, col(wave ? '#2b2b2b' : '#f3efe6'), S.solid);
+        }
+        box(xa, xb, 0, 0.12, zB, zC, P.sand, '#d9c391');
+        box(xa, xb, 0, 0.05, zC, zC + 0.3, '#f4fbfb', '#e2eef0');
+        for (let x = -E + 1; x < E; x += 3.6) palm(x, zB + 0.6, 0.12, 1.3 + hash(x, 1, 31) * 0.4);
+        // land behind the city
+        box(-E - 16, E + 18, 0, 0.25, -E - 24, -E - 0.01, n ? '#2c4a33' : '#6f9a5a', n ? '#22382a' : '#5c8a4b', { track: false });
+        const green = (t) => n ? (t > 0.7 ? '#344a3a' : '#2c4433') : (t > 0.7 ? '#7aa665' : '#5c8a4b');
+        const rock = () => n ? '#3a3c40' : '#7f7d76';
+        for (let k = 0; k < 5; k++) {
+          mound(ctx, -E + k * 9 + hash(k, 1, 33) * 3, -E - 9 - hash(k, 2, 33) * 3, 5 + hash(k, 3, 33) * 2, 5 + hash(k, 4, 33) * 3,
+            (d) => Math.pow(1 - d, 1.2), green, () => n ? '#26382b' : '#4f7d43', 0.8);
+        }
+        // Corcovado and the statue
+        const pk = mound(ctx, E + 3, -E - 9, 7, 12, (d) => Math.pow(1 - d, 1.35), green, rock, 0.8);
+        const cx = E + 3, cz = -E - 9, y = pk, w = '#f2efe8', w2 = '#d9d4ca';
+        box(cx - 0.45, cx + 0.45, y, y + 0.7, cz - 0.45, cz + 0.45, '#cfc9bd', '#b8b2a5');
+        box(cx - 0.25, cx + 0.25, y + 0.7, y + 2.9, cz - 0.2, cz + 0.2, w, w2);
+        box(cx - 1.5, cx + 1.5, y + 2.25, y + 2.55, cz - 0.15, cz + 0.15, w, w2);
+        box(cx - 0.15, cx + 0.15, y + 2.9, y + 3.2, cz - 0.15, cz + 0.15, w, w2);
+        // Sugarloaf and Urca in the bay
+        const granite = (t) => t < 0.22 || t > 0.93 ? (n ? '#2c4433' : '#5c8a4b') : (n ? '#4a4a4c' : '#8f8d86');
+        mound(ctx, -E - 5.6, E * 0.15, 3.4, 8.5, (d) => Math.pow(Math.max(0, 1 - d * d), 0.45), granite, () => n ? '#3c3c3e' : '#7d7b74', 0.7);
+        mound(ctx, -E - 3.8, E * 0.15 + 5.5, 2.4, 4, (d) => Math.pow(Math.max(0, 1 - d * d), 0.6), granite, () => n ? '#3c3c3e' : '#7d7b74', 0.7);
+      }
+    },
+    santorini: {
+      name: 'Santorini', sub: 'White cubes, blue domes', coords: '36.46° N · 25.38° E',
+      tex: 'house', glass: '#3b5d8f', glass2: '#3b5d8f', win: [1.2, 1.4], maxBlock: [2, 1], lightHouses: 0.7,
+      palettes: [
+        { name: 'Oia Blue', ground: '#efe9dd', ground2: '#e8e1d2', roofs: ['#1d4588', '#1a3d7a', '#22509a'], walls: ['#f7f4ee', '#f2eee6', '#fbf8f2'], lightWalls: ['#f7f4ee', '#f2eee6', '#f2d3b3', '#f3e3a6', '#fbf8f2', '#e9c2b0'], lightRoof: '#f8f5ef', cliff: '#7b4b3a', base: '#2a6aa8', accent: '#1d4fa0', skyD: ['#7fb9e6', '#fbd9b4'], skyN: ['#081230', '#30285a'] },
+        { name: 'Fira Sunset', ground: '#f1eadf', ground2: '#e9e0d1', roofs: ['#8c2f22', '#7a2a1e', '#9a3a26'], walls: ['#f7f4ee', '#f2eee6', '#fbf8f2'], lightWalls: ['#f7f4ee', '#f6e2c8', '#f3d9a8', '#fbf8f2', '#efc6b0'], lightRoof: '#f8f4ec', cliff: '#7b4b3a', base: '#2f6b9a', accent: '#a83a26', skyD: ['#f59d7a', '#fbd8a8'], skyN: ['#1a0f2a', '#5a2a4a'] },
+        { name: 'Aegean Mono', ground: '#eef0f2', ground2: '#e5e8eb', roofs: ['#14213d', '#1a2a4a', '#0f1a33'], walls: ['#f7f8f9', '#f1f3f5', '#fbfbfc'], lightWalls: ['#f7f8f9', '#e6ecf2', '#fbfbfc'], lightRoof: '#f9fafb', cliff: '#5e4a44', base: '#24557f', accent: '#1b2b4f', skyD: ['#a9c6e0', '#eef2f6'], skyN: ['#05070f', '#1f2a44'] }
+      ],
+      terrain(v, u, i, j) {
+        const k = Math.floor((1 - v) * 5.6 + (hash(j, 7, 3) - 0.5) * 0.5);
+        return 0.7 + Math.max(0, k) * 1.05;
+      },
+      height(b) { return 0.55 + Math.floor(hash(b.r, b.c, 1) * 3) * 0.3; },
+      lightHeight(b) { return 0.4 + Math.floor(hash(b.r, b.c, 5) * 3) * 0.25; },
+      finder(b, ctx) {
+        const P = ctx.P, cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2, y = b.hi + 1.3;
+        bld(b.x0, b.x1, b.z0, b.z1, b.lo, y, P.walls[0], P.roofs[0], b.r * 3 + b.c);
+        dome(cx, cz, y, [2.7, 2.35, 1.9, 1.3, 0.6], 0.32, P.roofs[0], P.roofs[1]);
+      },
+      detail(b, ctx) {
+        if (b.w === 1 && b.d === 1 && hash(b.r, b.c, 12) < 0.35) {
+          dome(b.x0 + 0.5, b.z0 + 0.5, b.top, [0.9, 0.72, 0.46], 0.14, ctx.P.roofs[0], ctx.P.roofs[1]);
+        }
+      },
+      extras(ctx) {
+        const { E } = ctx, n = ctx.night;
+        const rockTop = () => n ? '#3a2a26' : '#8a5a44', rockSide = () => n ? '#2c201d' : '#6a4436';
+        // outcrop with a windmill
+        const pk = mound(ctx, -E - 3.6, -3, 3, 5.2, (d) => Math.pow(Math.max(0, 1 - d * d), 0.5), rockTop, rockSide, 0.75);
+        const wx = -E - 3.6, wz = -3, y = pk;
+        box(wx - 0.5, wx + 0.5, y, y + 1.7, wz - 0.5, wz + 0.5, '#f7f4ee', '#f2eee6');
+        box(wx - 0.55, wx + 0.55, y + 1.7, y + 2.0, wz - 0.55, wz + 0.55, '#7a5236', '#6a4630');
+        box(wx - 0.06, wx + 0.06, y + 0.6, y + 2.8, wz + 0.55, wz + 0.62, '#5a3b26', '#5a3b26');
+        box(wx - 1.1, wx + 1.1, y + 1.64, y + 1.76, wz + 0.55, wz + 0.62, '#5a3b26', '#5a3b26');
+        // volcanic island across the caldera
+        mound(ctx, -E * 0.2, -E - 17, 8, 3, (d) => Math.pow(1 - d, 0.8), () => n ? '#241c1a' : '#4a3a35', () => n ? '#1c1614' : '#3d302c', 1);
+        // sailboat
+        const bx = E * 0.35, bz = E + 5;
+        box(bx - 1, bx + 1, 0, 0.35, bz - 0.3, bz + 0.3, '#f7f4ee', '#e6e2da', { track: false });
+        box(bx - 0.4, bx + 0.2, 0.35, 0.6, bz - 0.2, bz + 0.2, '#f7f4ee', '#dcd7cd', { track: false });
+        box(bx + 0.25, bx + 0.33, 0.35, 2.9, bz - 0.04, bz + 0.04, '#6a4630', '#6a4630', { track: false });
+        for (let k = 0; k < 6; k++) { const w = 1.2 * (1 - k / 6); box(bx + 0.33, bx + 0.33 + w, 0.7 + k * 0.36, 1.06 + k * 0.36, bz - 0.02, bz + 0.02, '#ffffff', '#f2f0ea', { track: false }); }
+      }
+    },
+    lisbon: {
+      name: 'Lisbon', sub: 'Pastel hills, red bridge', coords: '38.72° N · 9.14° W',
+      tex: 'house', glass: '#4a5a6e', glass2: '#4a5a6e', win: [1.4, 1.6], maxBlock: [2, 2],
+      palettes: [
+        { name: 'Alfama', ground: '#f1ece2', ground2: '#e8e1d4', roofs: ['#8a3a22', '#7a3420', '#93412a', '#80371f'], walls: ['#f2cf5b', '#eba7a0', '#6f9bd1', '#a8d5c2', '#e0a458', '#f3efe6'], cliff: '#9a8a72', base: '#7fb2c9', accent: '#b84d28', skyD: ['#8ec3e6', '#fde0b4'], skyN: ['#0b1430', '#3e2e58'] },
+        { name: 'Azulejo', ground: '#f2f0ea', ground2: '#e9e6de', roofs: ['#8a3a22', '#7a3420', '#93412a', '#80371f'], walls: ['#5b8fd1', '#e9eef5', '#3f6fb8', '#cfdcef', '#f3efe6', '#8fb3e0'], cliff: '#8a8a86', base: '#84b6cc', accent: '#2f62a8', skyD: ['#a4cdea', '#f4ecdc'], skyN: ['#081230', '#2a3060'] },
+        { name: 'Golden Hour', ground: '#f4ead8', ground2: '#ece0ca', roofs: ['#7a2e1a', '#6a2818', '#86361f'], walls: ['#f0b44c', '#e58a4a', '#f6dc8c', '#d9704a', '#f3e6c8'], cliff: '#9a7a5a', base: '#78a9be', accent: '#b8601b', skyD: ['#f6b07a', '#fde7c0'], skyN: ['#1a1028', '#5a2e3e'] }
+      ],
+      terrain(v, u) {
+        const h1 = Math.max(0, 1 - Math.hypot(u - 0.22, (v - 0.12) * 1.2) / 0.62);
+        const h2 = Math.max(0, 1 - Math.hypot(u - 0.82, (v - 0.2) * 1.2) / 0.5);
+        return Math.max(0.25, Math.round((0.25 + Math.pow(h1, 1.2) * 4.8 + Math.pow(h2, 1.2) * 3.2) / 0.35) * 0.35);
+      },
+      height(b) { return 0.1 + 0.45 * (2 + Math.floor(hash(b.r, b.c, 1) * 3)); },
+      finder(b, ctx) { // cathedral with twin towers
+        const P = ctx.P, st = '#ddd3c1', y = b.hi + 1.8;
+        bld(b.x0, b.x1, b.z0, b.z1, b.lo, y, st, P.roofs[0], b.r * 3 + b.c);
+        bld(b.x0, b.x0 + 1, b.z0, b.z0 + 1, y, y + 1.9, st, P.roofs[1], b.r * 5 + b.c);
+        bld(b.x1 - 1, b.x1, b.z0, b.z0 + 1, y, y + 1.9, st, P.roofs[1], b.r * 5 + b.c + 1);
+      },
+      detail(b, ctx) { // pitched ridge and chimneys
+        const y = b.top, rc = pick(ctx.P.roofs, b.r, b.c, 52), side = mixc(rc, '#000000', 0.15);
+        if (b.w >= b.d) box(b.x0 + 0.04, b.x1 - 0.04, y, y + 0.18, b.z0 + 0.3, b.z1 - 0.3, rc, side);
+        else box(b.x0 + 0.3, b.x1 - 0.3, y, y + 0.18, b.z0 + 0.04, b.z1 - 0.04, rc, side);
+        if (hash(b.r, b.c, 12) < 0.35) box(b.x0 + 0.1, b.x0 + 0.24, y, y + 0.42, b.z0 + 0.1, b.z0 + 0.24, '#5e2a1c', '#e8e0d0');
+      },
+      extras(ctx) {
+        const { E, N, tAt } = ctx, n = ctx.night;
+        box(-E - 16, E + 18, 0, 0.25, -E - 24, -E - 0.01, n ? '#2c4a33' : '#7a9a5e', n ? '#22382a' : '#66874e', { track: false });
+        const green = (t) => n ? '#2c4433' : (t > 0.6 ? '#86a86a' : '#6f9a5a');
+        for (let k = 0; k < 4; k++) {
+          mound(ctx, -E * 0.2 + k * 10 + hash(k, 1, 35) * 3, -E - 11 - hash(k, 2, 35) * 3, 6 + hash(k, 3, 35) * 2, 3 + hash(k, 4, 35) * 2.5,
+            (d) => Math.pow(1 - d, 1.2), green, () => n ? '#26382b' : '#5c7d48', 0.8);
+        }
+        // castle on its hill
+        const cx = -E * 0.45, cz = -E - 6.5;
+        const pk = mound(ctx, cx, cz, 5.5, 3.6, (d) => d < 0.52 ? 1 : Math.pow(1 - (d - 0.52) / 0.48, 0.9), green, () => n ? '#3a3530' : '#8a7a62', 0.8);
+        castle(cx, cz, pk - 0.3, 1.7, '#bcae92', '#a39477');
+        // red suspension bridge over the river
+        suspensionBridge(E, E + 18, -Math.round(E * 0.2), E + 4, E + 12, 5.8,
+          { deck: '#8a3a2c', deck2: '#6e2e22', tower: '#c0392b', tower2: '#a32f22', cable: '#9a2c20' });
+        // riverside fortress tower
+        const bx = -E - 3.5, bz = E + 2.5, s = '#ece4d2', s2 = '#d6ccb6';
+        box(bx - 1.1, bx + 1.1, 0, 0.9, bz - 1.3, bz + 1.3, s, s2);
+        box(bx - 0.6, bx + 0.6, 0.9, 3.4, bz - 1.2, bz, s, s2);
+        for (const [ox, oz] of [[-0.6, -1.2], [0.42, -1.2], [-0.6, -0.18], [0.42, -0.18]]) box(bx + ox, bx + ox + 0.18, 3.4, 3.65, bz + oz, bz + oz + 0.18, s, s2);
+        box(bx - 1.1, bx - 0.8, 0.9, 1.4, bz + 0.9, bz + 1.2, s, s2);
+        box(bx + 0.8, bx + 1.1, 0.9, 1.4, bz + 0.9, bz + 1.2, s, s2);
+        // yellow trams in the quiet zone
+        for (let k = 0; k < 3; k++) {
+          const c = Math.floor(N * (0.15 + k * 0.32)), r = N + 1, x = c - N / 2, z = r - N / 2 + 0.3, y = tAt(r, c);
+          box(x, x + 0.95, y, y + 0.42, z, z + 0.4, '#f4f1ea', '#f2c230', { track: false });
+        }
+      }
+    },
+    marrakech: {
+      name: 'Marrakech', sub: 'Pink medina, ramparts', coords: '31.63° N · 7.99° W',
+      tex: 'house', glass: '#5a2e22', glass2: '#5a2e22', win: [1.1, 1.3], maxBlock: [3, 3],
+      palettes: [
+        { name: 'Rose City', ground: '#f1dfc4', ground2: '#ead3b2', roofs: ['#6e2e22', '#5e2a20', '#7a3526', '#64281c'], walls: ['#c8735a', '#d08a6c', '#b9604a', '#e0a17f', '#c67d5f'], cliff: '#a0583f', base: '#dcbc8f', rampart: '#c27257', accent: '#a8462f', skyD: ['#9cc8e2', '#f8d9b0'], skyN: ['#0e1028', '#4a2a3a'] },
+        { name: 'Majorelle', ground: '#f2e6cf', ground2: '#eadcc0', roofs: ['#1c2552', '#212c5e', '#18204a'], walls: ['#3d5bd9', '#f2c230', '#3651c4', '#e8e2d0', '#2f9e7a'], cliff: '#a0583f', base: '#dcbc8f', rampart: '#c27257', accent: '#3048b8', skyD: ['#86bde6', '#f5e4c4'], skyN: ['#080c26', '#2a2a5a'] },
+        { name: 'Saffron', ground: '#f4e6cc', ground2: '#ecdcbc', roofs: ['#4a2a14', '#3e2410', '#55301a'], walls: ['#e0a040', '#d48a2e', '#e9b968', '#c27a2a', '#f0d29a'], cliff: '#a8743f', base: '#e0c08e', rampart: '#c98a4f', accent: '#ad6a1f', skyD: ['#a6cde3', '#fbe0b0'], skyN: ['#14101e', '#4e3426'] }
+      ],
+      terrain: () => 0.25,
+      height(b) { return 0.6 + Math.floor(hash(b.r, b.c, 1) * 3) * 0.4; },
+      finder(b, ctx) { // mosque with a square minaret; the back-left one is the tall one
+        const P = ctx.P, tile = '#1f5a3a', y = b.hi + 1.1, main = b.r === 2 && b.c === 2;
+        bld(b.x0, b.x1, b.z0, b.z1, b.lo, y, pick(P.walls, b.r, b.c, 4), tile, b.r * 3 + b.c);
+        const w = main ? 1.4 : 1.0, H = main ? 8.5 : 4.5, x0 = b.x0 + 0.15, z0 = b.z0 + 0.15;
+        bld(x0, x0 + w, z0, z0 + w, y, y + H, pick(P.walls, b.r, b.c, 6), tile, b.r * 9 + b.c);
+        const lx = x0 + w * 0.25, lz = z0 + w * 0.25, top = y + H + w * 0.6;
+        bld(lx, lx + w * 0.5, lz, lz + w * 0.5, y + H, top, pick(P.walls, b.r, b.c, 6), tile, b.r * 11 + b.c);
+        const cx = x0 + w / 2, cz = z0 + w / 2;
+        box(cx - 0.06, cx + 0.06, top, top + 0.5, cz - 0.06, cz + 0.06, '#6a5020', '#a8842c');
+      },
+      detail(b, ctx) { // rooftop stair rooms
+        if (b.w * b.d > 1 && hash(b.r, b.c, 12) < 0.4) {
+          const rc = pick(ctx.P.roofs, b.r, b.c, 52);
+          box(b.x1 - 0.5, b.x1 - 0.08, b.top, b.top + 0.4, b.z0 + 0.08, b.z0 + 0.5, rc, pick(ctx.P.walls, b.r, b.c, 51));
+        }
+      },
+      extras(ctx) {
+        const { E, P } = ctx, n = ctx.night, ram = col(P.rampart), ram2 = mixc(P.rampart, '#000000', 0.15);
+        // ramparts framing the medina, just outside the quiet zone
+        const a = E + 0.05, o = E + 0.6, h = 0.85;
+        box(-o, o, 0, h, a, o, ram, ram2);
+        box(-o, o, 0, h, -o, -a, ram, ram2);
+        box(-o, -a, 0, h, -a, a, ram, ram2);
+        box(a, o, 0, h, -a, a, ram, ram2);
+        for (let s = -o; s < o - 0.1; s += 0.6) {
+          box(s, s + 0.25, h, h + 0.22, a + 0.15, o, ram, ram2, { track: false });
+          box(s, s + 0.25, h, h + 0.22, -o, -a - 0.15, ram, ram2, { track: false });
+          box(-o, -a - 0.15, h, h + 0.22, s, s + 0.25, ram, ram2, { track: false });
+          box(a + 0.15, o, h, h + 0.22, s, s + 0.25, ram, ram2, { track: false });
+        }
+        for (let s = -o; s <= o + 0.01; s += 4) {
+          for (const [tx, tz] of [[s, a + 0.5], [s, -a - 0.5], [-a - 0.5, s], [a + 0.5, s]]) box(tx - 0.5, tx + 0.5, 0, h + 0.55, tz - 0.5, tz + 0.5, ram, ram2);
+        }
+        // palm groves outside the walls
+        for (let z = -E - 12; z < E + 12; z++) for (let x = -E - 12; x < E + 12; x++) {
+          if (Math.abs(x + 0.5) < E + 2 && Math.abs(z + 0.5) < E + 2) continue;
+          if (hash(x, z, 37) < 0.09) palm(x + 0.5, z + 0.5, 0, 1.1 + hash(x, z, 38) * 0.6);
+        }
+        // the Atlas, snow-capped, far behind
+        const rock = (t) => t > 0.68 ? (n ? '#c9cede' : '#f3f5f7') : (n ? '#3a2e34' : '#9a7a6a');
+        const rockS = (t) => t > 0.68 ? (n ? '#aab0c2' : '#dfe3ea') : (n ? '#2c2228' : '#86685a');
+        for (let k = 0; k < 4; k++) {
+          mound(ctx, -E * 0.9 + k * E * 0.65, -E - 28 - hash(k, 1, 39) * 4, 11 + hash(k, 2, 39) * 3, 8 + hash(k, 3, 39) * 3,
+            (d) => Math.pow(1 - d, 1.3), rock, rockS, 1.2);
+        }
+      }
+    },
+    dubai: {
+      name: 'Dubai', sub: 'Glass towers, desert, sea', coords: '25.20° N · 55.27° E',
+      tex: 'office', glass: '#2f5878', glass2: '#4a7ea6', win: [2.2, 3.2], maxBlock: [2, 2],
+      palettes: [
+        { name: 'Glass & Gold', ground: '#efe7d8', ground2: '#e6dcc9', roofs: ['#1d2733', '#232e3b', '#18202a', '#2a3442'], walls: ['#7fa6c4', '#9cbcd4', '#5f88aa', '#c9b37a', '#b8c8d6'], cliff: '#b39a74', base: '#e6cfa3', water: '#4fb3c8', accent: '#94721f', skyD: ['#7fb8e0', '#f7e3c0'], skyN: ['#070b1c', '#2c2450'] },
+        { name: 'Pearl', ground: '#f2ede4', ground2: '#e9e3d8', roofs: ['#2a3340', '#323c4a', '#232b36'], walls: ['#e9eef2', '#dfe6ec', '#f4f6f8', '#cdd9e2', '#bfd0dc'], cliff: '#b8a688', base: '#ead6b0', water: '#5cbcd0', accent: '#2f7099', skyD: ['#9ccbe8', '#f4f0e6'], skyN: ['#060a1a', '#1e2c4e'] },
+        { name: 'Desert Dusk', ground: '#f1e2c8', ground2: '#e9d7b8', roofs: ['#3a2618', '#2e2014', '#44301e'], walls: ['#d6a774', '#c98f5c', '#e4c39a', '#b67a4a', '#8fa0b0'], cliff: '#a8845a', base: '#e0c08e', water: '#4aa6bc', accent: '#a65a24', skyD: ['#f0a878', '#f9dcb0'], skyN: ['#160c22', '#53283c'] }
+      ],
+      terrain: () => 0.25,
+      height(b, ctx) {
+        const cx = (b.c + b.w / 2) / ctx.N - 0.5, cz = (b.r + b.d / 2) / ctx.N - 0.5;
+        const d = Math.min(1, Math.hypot(cx, cz) * 2);
+        let h = 2 + Math.pow(hash(b.r, b.c, 1), 1.4) * 11 * (1.1 - 0.4 * d);
+        if (hash(b.r, b.c, 2) < 0.08) h += 7;
+        return Math.round(h * 4) / 4;
+      },
+      finder(b, ctx) {
+        const P = ctx.P;
+        if (b.r === 2 && b.c === 2) { // the record-breaking needle
+          const cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2; let y = b.lo;
+          [3, 2.6, 2.2, 1.85, 1.5, 1.15, 0.85, 0.55].forEach((w, i) => {
+            bld(cx - w / 2, cx + w / 2, cz - w / 2, cz + w / 2, y, y + 2.5, P.walls[1], P.roofs[0], i * 17 + b.r);
+            y += 2.5;
+          });
+          box(cx - 0.08, cx + 0.08, y, y + 4.5, cz - 0.08, cz + 0.08, '#3a4450', '#9aa6b2');
+        } else setbackTower(b, 14 + hash(b.r, b.c, 8) * 5, pick(P.walls, b.r, b.c, 4), P.roofs[0], '#3a4450');
+      },
+      extras(ctx) {
+        const { E, P } = ctx, n = ctx.night;
+        face('t', -500, 500, -1, -0.01, E + 1.5, 500, n ? night(P.water) : col(P.water), S.solid);
+        box(-500, 500, 0, 0.06, E + 1, E + 1.5, '#f3e6c6', '#e0cfa6', { track: false });
+        // sail-shaped hotel on its island
+        const ix = E + 5, iz = E + 4;
+        box(ix - 1.4, ix + 1.4, 0, 0.3, iz - 1.4, iz + 1.4, '#efe2c4', '#d9c9a6');
+        for (let k = 0; k < 12; k++) {
+          const f = k / 12, depth = 0.4 + 1.9 * (1 - f * f);
+          box(ix + 1.0 - depth, ix + 1.0, 0.3 + k * 0.6, 0.9 + k * 0.6, iz - 0.5, iz + 0.5, '#f4f6f8', '#e4e9ee');
+        }
+        box(ix + 1.0, ix + 1.25, 0.3, 8.3, iz - 0.15, iz + 0.15, '#d9dee4', '#c7cdd4');
+        box(ix - 0.7, ix + 0.3, 5.7, 5.82, iz - 0.5, iz + 0.5, '#3a3f46', '#3a3f46', { track: false });
+        // palm-shaped island in the sea
+        const px = -E - 9, pz = E + 4, sand = '#efe2c4', sand2 = '#d9c9a6';
+        box(px - 0.4, px + 0.4, 0, 0.1, pz - 2, pz + 5, sand, sand2, { track: false });
+        for (let k = 0; k < 6; k++) { const z = pz + 0.2 + k * 0.85; box(px - 2.6, px + 2.6, 0, 0.1, z, z + 0.3, sand, sand2, { track: false }); }
+        for (let a = 0; a <= 16; a++) {
+          const t = Math.PI * (a / 16), x = px + Math.cos(t) * 4, z = pz + 6 + Math.sin(t) * 1.6;
+          box(x - 0.3, x + 0.3, 0, 0.1, z - 0.3, z + 0.3, sand, sand2, { track: false });
+        }
+        // dunes
+        const dune = () => n ? '#4a3e30' : '#e3c18f', duneS = () => n ? '#3a3026' : '#cfa978';
+        for (let k = 0; k < 5; k++) {
+          mound(ctx, -E + k * 10 + hash(k, 1, 41) * 4, -E - 9 - hash(k, 2, 41) * 6, 6 + hash(k, 3, 41) * 3, 1.8 + hash(k, 4, 41) * 1.5,
+            (d) => Math.pow(1 - d, 1.6), dune, duneS, 1.0);
+        }
+      }
+    },
+    paris: {
+      name: 'Paris', sub: 'Zinc roofs, the iron tower', coords: '48.86° N · 2.35° E',
+      tex: 'office', glass: '#5a6272', glass2: '#6e7686', win: [1.8, 2.3], maxBlock: [3, 2],
+      palettes: [
+        { name: 'Haussmann', ground: '#ece7dd', ground2: '#e3ddd0', roofs: ['#3d4a5a', '#465364', '#36404e', '#4a5566'], walls: ['#e8dcc4', '#efe5d2', '#d9cbb0', '#e2d3b5'], cliff: '#8a8476', base: '#cfc8b8', water: '#8fb0bd', accent: '#2f4a6b', skyD: ['#a9c4dc', '#f1dcc4'], skyN: ['#0c1226', '#33304f'] },
+        { name: 'Montmartre', ground: '#f1ebe0', ground2: '#e8e1d4', roofs: ['#3a4656', '#424e5e', '#323c4a'], walls: ['#f2d7a8', '#e9b8a8', '#cfe0d0', '#f3ecdf', '#d8c4e0'], cliff: '#8a8476', base: '#d6cdbc', water: '#93b4c0', accent: '#a8445a', skyD: ['#c3d6e6', '#f7dccd'], skyN: ['#120c26', '#3e2c52'] },
+        { name: 'Belle Époque', ground: '#efe6d4', ground2: '#e6dbc6', roofs: ['#2f3540', '#383f4b', '#283039'], walls: ['#d6c29a', '#c9b184', '#e3d3ae', '#bfa577'], cliff: '#857a62', base: '#cbbf9f', water: '#87a8a8', accent: '#806020', skyD: ['#b5ccd6', '#f3d6a8'], skyN: ['#100e1e', '#3a3020'] }
+      ],
+      terrain: () => 0.25,
+      height(b) { return 1.6 + Math.floor(hash(b.r, b.c, 1) * 3) * 0.25; },
+      finder(b, ctx) { // domed monument
+        const P = ctx.P, st = P.walls[0], zc = P.roofs[0], y = b.hi + 1.5, cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;
+        bld(b.x0, b.x1, b.z0, b.z1, b.lo, y, st, zc, b.r * 3 + b.c);
+        box(cx - 0.85, cx + 0.85, y, y + 0.9, cz - 0.85, cz + 0.85, zc, st);
+        const top = dome(cx, cz, y + 0.9, [1.7, 1.45, 1.15, 0.8, 0.45], 0.28, zc, mixc(zc, '#ffffff', 0.12));
+        box(cx - 0.12, cx + 0.12, top, top + 0.4, cz - 0.12, cz + 0.12, zc, st);
+      },
+      detail(b, ctx) { // mansard roof with dormers and chimney stacks
+        const rc = pick(ctx.P.roofs, b.r, b.c, 52), wall = pick(ctx.P.walls, b.r, b.c, 51), y = b.top, m = y + 0.38;
+        box(b.x0 + 0.1, b.x1 - 0.1, y, m, b.z0 + 0.1, b.z1 - 0.1, rc, mixc(rc, '#ffffff', 0.12));
+        for (let x = b.x0 + 0.22; x < b.x1 - 0.3; x += 0.5) box(x, x + 0.16, y + 0.08, y + 0.3, b.z1 - 0.14, b.z1 - 0.06, rc, wall, { track: false });
+        if (hash(b.r, b.c, 12) < 0.6) box(b.x0 + 0.15, b.x0 + 0.42, m, m + 0.28, b.z0 + 0.15, b.z0 + 0.3, '#5a3a30', '#9a6a54', { track: false });
+      },
+      extras(ctx) {
+        const { E, P } = ctx, n = ctx.night;
+        // the river, its stone quays and two bridges
+        face('t', -500, 500, -1, -0.01, E + 1.5, E + 6.5, n ? night(P.water) : col(P.water), S.solid);
+        box(-E - 16, E + 16, 0, 0.3, E + 1.1, E + 1.5, '#cfc6b2', '#b8ae98', { track: false });
+        box(-E - 16, E + 16, 0, 0.3, E + 6.5, E + 6.9, '#cfc6b2', '#b8ae98', { track: false });
+        for (const bx of [-E * 0.45, E * 0.35]) {
+          box(bx - 0.7, bx + 0.7, 0.45, 0.7, E + 1.1, E + 6.9, '#d8ccb4', '#c2b59a', { track: false });
+          for (const zp of [E + 2.9, E + 4.9]) box(bx - 0.7, bx + 0.7, 0, 0.45, zp - 0.25, zp + 0.25, '#c2b59a', '#b0a388', { track: false });
+        }
+        // the iron tower on its lawn
+        const tx = E + 5.5, tz = -E + 3.5;
+        box(tx - 3, tx + 3, 0, 0.05, tz - 3, tz + 6, n ? '#2f4030' : '#9ab878', n ? '#263426' : '#86a466', { track: false });
+        latticeTower(tx, tz, {
+          levels: 18, tip: 0.18, base: 4.6, pow: 2.3, lh: 0.85, legs: 6, lw: 0.6, arch: true, decks: [3, 8], antenna: 1.4,
+          color: (i) => i % 2 ? ['#6e5a46', '#5c4a3a'] : ['#7a6450', '#665240'], deck: ['#5c4a3a', '#4e3e30']
+        });
+        // surrounding boulevards, on both banks
+        const lawn = (x, z) => !(Math.abs(x - tx) < 3.2 && z > tz - 3.2 && z < tz + 6.2);
+        outerCity(ctx, -E - 12, E + 13, E + 14, (x, z) => lawn(x, z) && (z < E + 1 || z >= E + 7.4), (x, z) => 1.3 + Math.floor(hash(x, z, 82) * 3) * 0.2);
+      }
+    }
+  };
+  const ORDER = ['nyc', 'tokyo', 'rio', 'santorini', 'lisbon', 'marrakech', 'dubai', 'paris'];
+
+  /* ---------- three.js setup ---------- */
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  } catch (e) {
+    stage.insertAdjacentHTML('beforeend', '<div class="fail">This browser could not start WebGL, which the 3D city needs.</div>');
+    return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setClearColor(0x000000, 0);
+  const scene = new THREE.Scene();
+  const camera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 1400);
+  const amb = new THREE.AmbientLight(0xffffff, 0.5);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.6);
+  scene.add(amb, sun, sun.target);
+  const fog = new THREE.Fog(0xf6d2a6, 230, 300);
+  scene.fog = fog;
+
+  const wallMat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: new THREE.Color('#ffc874'), emissiveIntensity: 0 });
+  const solidMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const neonMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+  const cloudMat = new THREE.MeshLambertMaterial({ vertexColors: true, fog: false });
+  let meshes = [], cloudMesh = null;
+
+  const texCache = {};
+  function wallTextures(key) {
+    if (texCache[key]) return texCache[key];
+    const c = CITIES[key];
+    const mk = () => { const cv = document.createElement('canvas'); cv.width = cv.height = 64; return cv; };
+    const a = mk(), b = mk(), ga = a.getContext('2d'), gb = b.getContext('2d');
+    ga.fillStyle = '#ffffff'; ga.fillRect(0, 0, 64, 64);
+    gb.fillStyle = '#000000'; gb.fillRect(0, 0, 64, 64);
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) {
+      const x = i * 8, y = j * 8;
+      if (c.tex === 'office') {
+        ga.fillStyle = hash(i, j, 21) < 0.25 ? c.glass2 : c.glass; ga.fillRect(x + 1, y + 2, 6, 5);
+        if (hash(i, j, 22) < 0.42) { gb.fillStyle = hash(i, j, 23) < 0.5 ? '#ffffff' : '#bfae8a'; gb.fillRect(x + 1, y + 2, 6, 5); }
+      } else if (hash(i, j, 24) < 0.5) {
+        ga.fillStyle = c.glass; ga.fillRect(x + 2, y + 2, 4, 4);
+        if (hash(i, j, 25) < 0.55) { gb.fillStyle = '#ffffff'; gb.fillRect(x + 2, y + 2, 4, 4); }
+      }
+    }
+    const t = (cv) => { const tx = new THREE.CanvasTexture(cv); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.magFilter = THREE.NearestFilter; tx.minFilter = THREE.LinearMipmapLinearFilter; return tx; };
+    return (texCache[key] = { map: t(a), lit: t(b) });
+  }
+
+  /* ---------- state ---------- */
+  const state = { enc: '', qr: null, city: 'nyc', pal: 0, night: false };
+  const view = { E: 20, N: 25, Q: 4, maxTop: 10 };
+  const anim = { t: 0, target: 0 };
+  const drag = { az: 0, on: false, x: 0 };
+  const vp = { w: 1, h: 1, off: 0 };
+
+  function greedy(out, used, test, mb, salt) {
+    const N = state.qr.N;
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      if (used[r * N + c] || !test(r, c)) continue;
+      const tw = 1 + Math.floor(hash(r, c, salt) * mb[0]), td = 1 + Math.floor(hash(r, c, salt + 1) * mb[1]);
+      let w = 1; while (w < tw && c + w < N && !used[r * N + c + w] && test(r, c + w)) w++;
+      let d = 1;
+      grow: while (d < td && r + d < N) { for (let k = 0; k < w; k++) if (used[(r + d) * N + c + k] || !test(r + d, c + k)) break grow; d++; }
+      for (let a = 0; a < d; a++) for (let k = 0; k < w; k++) used[(r + a) * N + c + k] = 1;
+      out.push({ r, c, w, d });
+    }
+  }
+
+  function build() {
+    const qr = state.qr, N = qr.N, Q = 4, M = N + 2 * Q, E = N / 2 + Q;
+    city = CITIES[state.city];
+    const P = city.palettes[state.pal], nightMode = state.night;
+    S = { wall: new Layer(), solid: new Layer(), neon: new Layer(), cloud: new Layer() };
+    maxTop = 0;
+    const Tm = new Float32Array(M * M), occ = new Float32Array(M * M).fill(1e9);
+    for (let i = 0; i < M; i++) for (let j = 0; j < M; j++) Tm[i * M + j] = city.terrain((i + 0.5) / M, (j + 0.5) / M, i, j, M);
+    const tAt = (r, c) => Tm[(r + Q) * M + (c + Q)];
+    const ctx = { N, Q, M, E, P, night: nightMode, dark: qr.dark, tAt };
+
+    // dark modules become buildings; the three finder-pattern centres become landmark towers
+    const used = new Uint8Array(N * N), blocks = [];
+    for (const [r0, c0] of [[2, 2], [2, N - 5], [N - 5, 2]]) {
+      for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) used[(r0 + a) * N + c0 + b] = 1;
+      blocks.push({ r: r0, c: c0, w: 3, d: 3, finder: true });
+    }
+    greedy(blocks, used, qr.dark, city.maxBlock, 31);
+    const lightBlocks = [];
+    if (city.lightHouses) greedy(lightBlocks, new Uint8Array(N * N), (r, c) => !qr.dark(r, c) && hash(r, c, 41) < city.lightHouses, [2, 2], 43);
+
+    for (const b of blocks.concat(lightBlocks)) {
+      let lo = 1e9, hi = -1e9;
+      for (let a = 0; a < b.d; a++) for (let k = 0; k < b.w; k++) { const t = tAt(b.r + a, b.c + k); lo = Math.min(lo, t); hi = Math.max(hi, t); }
+      b.lo = lo; b.hi = hi;
+      for (let a = 0; a < b.d; a++) for (let k = 0; k < b.w; k++) occ[(b.r + a + Q) * M + (b.c + k + Q)] = lo;
+      b.x0 = b.c - N / 2; b.x1 = b.x0 + b.w; b.z0 = b.r - N / 2; b.z1 = b.z0 + b.d;
+    }
+    for (const b of blocks) {
+      if (b.finder) { city.finder(b, ctx); continue; }
+      b.h = city.height(b, ctx); b.top = b.hi + b.h;
+      bld(b.x0, b.x1, b.z0, b.z1, b.lo, b.top, pick(P.walls, b.r, b.c, 51), pick(P.roofs, b.r, b.c, 52), b.r * 131 + b.c);
+      if (city.detail) city.detail(b, ctx);
+    }
+    for (const b of lightBlocks) {
+      const top = b.hi + city.lightHeight(b, ctx);
+      bld(b.x0, b.x1, b.z0, b.z1, b.lo, top, pick(P.lightWalls || P.walls, b.r, b.c, 53), P.lightRoof, b.r * 77 + b.c);
+    }
+
+    // ground: light streets and the quiet zone, with cliffs where the terrain steps
+    const cliffA = nightMode ? night(P.cliff) : col(P.cliff), cliffB = cliffA.clone().multiplyScalar(0.88);
+    for (let i = 0; i < M; i++) for (let j = 0; j < M; j++) {
+      const r = i - Q, c = j - Q, h = Tm[i * M + j], x0 = c - N / 2, x1 = x0 + 1, z0 = r - N / 2, z1 = z0 + 1;
+      const inCode = r >= 0 && r < N && c >= 0 && c < N;
+      if (occ[i * M + j] > 1e8) face('t', x0, x1, 0, h, z0, z1, col(inCode && hash(r, c, 9) < 0.3 ? P.ground2 : P.ground), S.solid);
+      const cap = Math.min(h, occ[i * M + j]);
+      for (const [d, ii, jj] of [['f', i + 1, j], ['b', i - 1, j], ['r', i, j + 1], ['l', i, j - 1]]) {
+        const hn = (ii < 0 || jj < 0 || ii >= M || jj >= M) ? 0 : Tm[ii * M + jj];
+        if (cap > hn + 1e-4) face(d, x0, x1, hn, cap, z0, z1, hash(i, j, 61) < 0.5 ? cliffA : cliffB, S.solid);
+      }
+    }
+    face('t', -500, 500, -1, -0.02, -500, 500, nightMode ? night(P.base) : col(P.base), S.solid);
+    if (city.extras) city.extras(ctx);
+    if (!nightMode) clouds(ctx);
+
+    for (const m of meshes) { scene.remove(m); m.geometry.dispose(); }
+    const tex = wallTextures(state.city);
+    wallMat.map = tex.map; wallMat.emissiveMap = tex.lit; wallMat.needsUpdate = true;
+    meshes = [new THREE.Mesh(S.wall.geo(), wallMat), new THREE.Mesh(S.solid.geo(), solidMat), new THREE.Mesh(S.neon.geo(), neonMat)];
+    cloudMesh = new THREE.Mesh(S.cloud.geo(), cloudMat);
+    meshes.push(cloudMesh);
+    for (const m of meshes) scene.add(m);
+
+    view.E = E; view.N = N; view.Q = Q; view.maxTop = maxTop;
+    fog.near = 200 + E + 4; fog.far = 200 + E + 95;
+  }
+
+  /* ---------- camera & lights ---------- */
+  const sideDir = new THREE.Vector3(-0.55, 0.75, 0.45).normalize(), topDir = new THREE.Vector3(0, 1, 0);
+  function setLights(k) {
+    const n = state.night;
+    amb.intensity = lerp(n ? 0.24 : 0.5, 0.45, k);
+    sun.intensity = lerp(n ? 0.3 : 0.64, 0.55, k);
+    amb.color.copy(col(n ? '#8090d8' : '#fff4e8')).lerp(WHITE, k);
+    sun.color.copy(col(n ? '#bac6ff' : '#fff1dc')).lerp(WHITE, k);
+    sun.position.copy(sideDir).lerp(topDir, k).normalize();
+    wallMat.emissiveIntensity = n ? 1 : 0;
+  }
+  function updateCamera(now, k) {
+    const sway = reduceMotion ? 0 : 0.1 * Math.sin(now * 0.00025);
+    const a = (-0.42 + sway + drag.az) * (1 - k);
+    const e = lerp(9, 90, k) * Math.PI / 180;
+    const { E, N, Q, maxTop: mt } = view;
+    const ty = lerp(mt * 0.52, 0, k);
+    const dx = Math.cos(e) * Math.sin(a), dy = Math.sin(e), dz = Math.cos(e) * Math.cos(a);
+    camera.position.set(dx * 200, ty + dy * 200, dz * 200);
+    camera.up.set(-Math.sin(e) * Math.sin(a), Math.cos(e), -Math.sin(e) * Math.cos(a));
+    camera.lookAt(0, ty, 0);
+    const effW = Math.max(1, vp.w - vp.off), aspEff = effW / vp.h;
+    const e0 = 9 * Math.PI / 180;
+    const sideHalfW = (E + 3) * 1.18;
+    const sideH = Math.max(sideHalfW / aspEff, (mt * Math.cos(e0) + 2 * E * Math.sin(e0)) * 0.6);
+    const topHalf = N / 2 + Q + 1.5;
+    const topH = Math.max(topHalf, topHalf / aspEff) * 1.04;
+    const hh = Math.exp(lerp(Math.log(sideH), Math.log(topH), k)) * (1 + 0.18 * Math.sin(Math.PI * k));
+    const hw = hh * vp.w / vp.h, shift = (vp.off / vp.w) * hw;
+    camera.left = -hw - shift; camera.right = hw - shift; camera.top = hh; camera.bottom = -hh;
+    camera.updateProjectionMatrix();
+  }
+  function resize() {
+    const r = stage.getBoundingClientRect();
+    vp.w = Math.max(1, r.width); vp.h = Math.max(1, r.height);
+    vp.off = window.innerWidth > 760 ? Math.max(0, panel.getBoundingClientRect().right - r.left) : 0;
+    renderer.setSize(vp.w, vp.h, false);
+  }
+  new ResizeObserver(resize).observe(stage);
+  window.addEventListener('resize', resize);
+
+  /* ---------- top-down render (scan check + PNG) ---------- */
+  function renderTop(size, extra = 1.5) {
+    const half = view.N / 2 + view.Q + extra;
+    const cam = new THREE.OrthographicCamera(-half, half, half, -half, 0.1, 1400);
+    cam.position.set(0, 200, 0); cam.up.set(0, 0, -1); cam.lookAt(0, 0, 0);
+    const rt = new THREE.WebGLRenderTarget(size, size);
+    setLights(1); scene.fog = null; if (cloudMesh) cloudMesh.visible = false;
+    renderer.setRenderTarget(rt); renderer.clear(); renderer.render(scene, cam);
+    const buf = new Uint8Array(size * size * 4);
+    renderer.readRenderTargetPixels(rt, 0, 0, size, size, buf);
+    renderer.setRenderTarget(null); rt.dispose(); scene.fog = fog;
+    const cv = document.createElement('canvas'); cv.width = cv.height = size;
+    const g = cv.getContext('2d'), img = g.createImageData(size, size);
+    for (let y = 0; y < size; y++) img.data.set(buf.subarray((size - 1 - y) * size * 4, (size - y) * size * 4), y * size * 4);
+    for (let i = 3; i < img.data.length; i += 4) img.data[i] = 255;
+    g.putImageData(img, 0, 0);
+    return cv;
+  }
+  const scanEl = $('#scan');
+  function setScan(kind, text) { scanEl.className = 'pill' + (kind ? ' ' + kind : ''); scanEl.querySelector('span').textContent = text; }
+  const shortHost = (s) => { try { const u = new URL(s); return u.host + (u.pathname.length > 1 ? u.pathname : ''); } catch (e) { return s; } };
+  let scanTimer = 0;
+  function scheduleScan() {
+    clearTimeout(scanTimer);
+    setScan('', 'Checking the code…');
+    scanTimer = setTimeout(() => {
+      if (!window.jsQR) { setScan('', 'Scan check unavailable'); return; }
+      const cv = renderTop(720), img = cv.getContext('2d').getImageData(0, 0, 720, 720);
+      const res = jsQR(img.data, 720, 720, { inversionAttempts: 'dontInvert' });
+      if (res && res.data === state.enc) setScan('ok', 'Scans · opens ' + shortHost(state.enc));
+      else setScan('bad', 'Not scanning yet · try a shorter link');
+    }, 350);
+  }
+
+  /* ---------- UI ---------- */
+  const urlEl = $('#url'), metaEl = $('#meta'), noteEl = $('#note');
+  function normalizeUrl(s) {
+    s = s.trim();
+    if (!s) return '';
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(s) && /^[^\s/]+\.[^\s]+$/.test(s)) return 'https://' + s;
+    return s;
+  }
+  function setNote(text, warn) { noteEl.textContent = text; noteEl.className = 'note' + (warn ? ' warn' : ''); }
+  function readUrl() {
+    const enc = normalizeUrl(urlEl.value);
+    if (!enc) { setNote('Enter a link to build your city.', true); return false; }
+    let q;
+    try { q = qrcode(0, 'H'); q.addData(enc); q.make(); }
+    catch (e) { setNote('That link is too long for a QR code. Try a shorter one.', true); return false; }
+    const N = q.getModuleCount(), m = new Uint8Array(N * N);
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) m[r * N + c] = q.isDark(r, c) ? 1 : 0;
+    state.qr = { N, dark: (r, c) => m[r * N + c] === 1 };
+    state.enc = enc;
+    const len = enc.length;
+    metaEl.textContent = `${N} × ${N} blocks · ${len} characters` + (enc !== urlEl.value.trim() ? ` · encodes ${enc}` : '');
+    if (N >= 41) setNote('Long link: the city gets dense and the blocks get small. A shorter link gives a bolder skyline.', false);
+    else if (N <= 29) setNote('Short link: big, bold buildings.', false);
+    else setNote('', false);
+    return true;
+  }
+
+  function applyLook() {
+    const c = CITIES[state.city], P = c.palettes[state.pal], sky = state.night ? P.skyN : P.skyD;
+    stage.style.setProperty('--sky-top', sky[0]);
+    stage.style.setProperty('--sky-bot', sky[1]);
+    stage.classList.toggle('night', state.night);
+    fog.color.set(sky[1]);
+    document.documentElement.style.setProperty('--accent', P.accent);
+    $('#place').textContent = c.name;
+    $('#coords').textContent = c.coords;
+  }
+
+  const citiesEl = $('#cities'), palsEl = $('#palettes');
+  function renderCities() {
+    citiesEl.innerHTML = '';
+    for (const key of ORDER) {
+      const c = CITIES[key], P = c.palettes[0];
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'city'; b.setAttribute('aria-pressed', String(key === state.city));
+      b.innerHTML = `<span class="strip">${[P.skyD[0], P.walls[0], P.roofs[0], P.ground].map((h) => `<i style="background:${h}"></i>`).join('')}</span><span class="nm"></span><span class="sub"></span>`;
+      b.querySelector('.nm').textContent = c.name; b.querySelector('.sub').textContent = c.sub;
+      b.addEventListener('click', () => { if (state.city === key) return; state.city = key; state.pal = 0; refresh(); });
+      citiesEl.appendChild(b);
+    }
+  }
+  function renderPalettes() {
+    palsEl.innerHTML = '';
+    CITIES[state.city].palettes.forEach((P, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'pal'; b.setAttribute('aria-pressed', String(i === state.pal));
+      b.innerHTML = `<span class="sw">${[P.walls[0], P.walls[1], P.roofs[0], P.ground].map((h) => `<i style="background:${h}"></i>`).join('')}</span><span></span>`;
+      b.lastChild.textContent = P.name;
+      b.addEventListener('click', () => { if (state.pal === i) return; state.pal = i; refresh(); });
+      palsEl.appendChild(b);
+    });
+  }
+  function refresh() {
+    renderCities(); renderPalettes(); applyLook(); build(); scheduleScan();
+  }
+
+  let inputTimer = 0;
+  urlEl.addEventListener('input', () => {
+    clearTimeout(inputTimer);
+    inputTimer = setTimeout(() => { if (readUrl()) { build(); scheduleScan(); } }, 160);
+  });
+  urlEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); urlEl.blur(); } });
+
+  const dayBtn = $('#day'), nightBtn = $('#night');
+  function setNight(v) {
+    if (state.night === v) return;
+    state.night = v; dayBtn.setAttribute('aria-pressed', String(!v)); nightBtn.setAttribute('aria-pressed', String(v));
+    applyLook(); build(); scheduleScan();
+  }
+  dayBtn.addEventListener('click', () => setNight(false));
+  nightBtn.addEventListener('click', () => setNight(true));
+
+  const flyBtn = $('#fly');
+  flyBtn.addEventListener('click', () => {
+    anim.target = anim.target === 1 ? 0 : 1;
+    flyBtn.innerHTML = anim.target === 1 ? 'Back to street <span aria-hidden="true">↓</span>' : 'Fly up <span aria-hidden="true">↑</span>';
+    stage.classList.toggle('aerial', anim.target === 1);
+  });
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (anim.target === 1) return;
+    drag.on = true; drag.x = e.clientX;
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!drag.on) return;
+    drag.az = Math.max(-1.1, Math.min(1.1, drag.az - (e.clientX - drag.x) * 0.006));
+    drag.x = e.clientX;
+  });
+  for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.addEventListener(t, () => { drag.on = false; });
+
+  /* ---------- download ---------- */
+  const downloadsP = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+  const modal = $('#modal'), toastHost = document.body;
+  function toast(text) {
+    const t = document.createElement('div'); t.className = 'toast'; t.textContent = text; toastHost.appendChild(t);
+    setTimeout(() => t.remove(), 2200);
+  }
+  function showModal(cv) { $('#modal-img').src = cv.toDataURL('image/png'); modal.hidden = false; $('#modal-close').focus(); }
+  $('#modal-close').addEventListener('click', () => { modal.hidden = true; });
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.hidden = true; });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') modal.hidden = true; });
+
+  const dlBtn = $('#dl');
+  dlBtn.addEventListener('click', async () => {
+    dlBtn.disabled = true;
+    try {
+      const cv = renderTop(2048, 2);
+      const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
+      const dl = await Promise.race([downloadsP, new Promise((r) => setTimeout(() => r(null), 1500))]);
+      const name = `skyline-qr-${state.city}-${CITIES[state.city].palettes[state.pal].name.toLowerCase().replace(/[^a-z]+/g, '-')}.png`;
+      if (dl && blob) {
+        try { await dl.save({ filename: name, data: blob }); toast('Saved ' + name); }
+        catch (err) { if (!err || err.code !== 'declined') showModal(cv); }
+      } else if (!window.claude && blob) { // standalone site: a normal browser download
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        toast('Saved ' + name);
+      } else showModal(cv);
+    } finally { dlBtn.disabled = false; }
+  });
+
+  /* ---------- loop ---------- */
+  const orb = $('#orb'), hint = $('#hint');
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(250, now - last); last = now;
+    if (anim.t !== anim.target) {
+      const step = reduceMotion ? 1 : dt / 2400;
+      anim.t = anim.target > anim.t ? Math.min(anim.target, anim.t + step) : Math.max(anim.target, anim.t - step);
+    }
+    const k = ease(anim.t);
+    updateCamera(now, k);
+    setLights(k);
+    if (cloudMesh) cloudMesh.visible = k < 0.3;
+    orb.style.opacity = String(Math.max(0, 1 - k * 2.5));
+    hint.style.opacity = k < 0.05 ? '1' : '0';
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+
+  resize();
+  if (!readUrl()) { urlEl.value = 'https://example.com'; readUrl(); }
+  refresh();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
